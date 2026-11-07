@@ -46,6 +46,7 @@ setup:
     #!/usr/bin/env bash
     set -euo pipefail
     {{x}} true  # make sure mise tools are installed
+    {{x}} lefthook install
     fetch() { # url branch dir
         if [ -d "$3/.git" ]; then
             git -C "$3" fetch -q --depth 1 origin "$2" && git -C "$3" reset -q --hard FETCH_HEAD

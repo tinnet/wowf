@@ -9,11 +9,11 @@ Small personal addons for WoW Forever (client 1.60.x, `## Interface: 16001`).
 ## Setup
 
 Tools are managed with [mise](https://mise.jdx.dev/) (`mise.toml`): `just`, Lua 5.1,
-lua-language-server, and StyLua.
+lua-language-server, StyLua, and lefthook.
 
 ```sh
 mise install     # install the tools
-just setup       # fetch WoW API annotations for the checker
+just setup       # fetch WoW API annotations, install git hooks
 just link        # symlink the addons into the game
 ```
 
@@ -28,10 +28,19 @@ your shell. If it isn't, run just itself with `mise exec -- just <recipe>`.
 | `just link` | Symlinks each addon into `…/_forever_/Interface/AddOns`. An addon is any folder `Name/` that contains `Name/Name.toc`. Links that already exist are left alone, and a real folder with the same name is skipped, never overwritten. Run it again after adding a new addon. |
 | `just unlink` | Removes the symlinks in the AddOns folder that point back into this repo. Other addons aren't touched. |
 | `just status` | Shows which addons are linked from this repo. |
-| `just setup` | Clones or updates the annotations into `.cache/` (gitignored): [Ketho/vscode-wow-api](https://github.com/Ketho/vscode-wow-api) for the game API, events, and widgets, and the `forever` branch of [NumyAddon/FramexmlAnnotations](https://github.com/NumyAddon/FramexmlAnnotations) for Blizzard's UI code. Both are MIT licensed. Rerun it after a game patch. |
+| `just setup` | Clones or updates the annotations into `.cache/` (gitignored): [Ketho/vscode-wow-api](https://github.com/Ketho/vscode-wow-api) for the game API, events, and widgets, and the `forever` branch of [NumyAddon/FramexmlAnnotations](https://github.com/NumyAddon/FramexmlAnnotations) for Blizzard's UI code. Both are MIT licensed. Also installs the lefthook git hooks. Rerun it after a game patch. |
 | `just check` | Syntax-checks every addon `.lua` with the real Lua 5.1 `luac` (the game's Lua version, which rejects 5.2+ syntax such as `goto` and `//`). Then runs `lua-language-server --check` for undefined globals, typos, and wrong argument types. Runs `setup` first if the annotations are missing. Exits non-zero if it finds problems. |
 | `just fmt` | Formats addon Lua with StyLua (`.stylua.toml`: 4 spaces, 100 columns). |
 | `just fmt-check` | Fails if anything isn't formatted. Changes nothing. |
+
+## Git hooks
+
+[lefthook](https://lefthook.dev/) (`lefthook.yml`) runs on every commit that touches `.lua` files:
+
+1. **fmt**: StyLua formats the staged files, and the changes are re-staged into the commit. This never fails the commit.
+2. **check**: runs `just check`. The commit is blocked if it reports problems.
+
+Skip the hooks once with `LEFTHOOK=0 git commit …`.
 
 ## Type stubs for Forever
 

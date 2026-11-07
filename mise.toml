@@ -1,5 +1,6 @@
 [tools]
 just = "1.59.0"
+lefthook = "2.2.2"
 lua = "5.1"
 lua-language-server = "3.19.2"
 stylua = "2.6.0"
