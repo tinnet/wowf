@@ -1,13 +1,13 @@
-# Run `mise exec -- lefthook install` once after cloning (or `just setup`).
+# Installed by `just setup` (or `mise exec -- lefthook install`).
 pre-commit:
-  piped: true # format first, then check the formatted result
-  commands:
-    fmt:
+  piped: true # run in order: format first, then check the formatted result
+  jobs:
+    - name: fmt
       glob: "*.lua"
       exclude:
         - "types/**"
       run: mise exec -- stylua {staged_files}
       stage_fixed: true # re-stage what stylua changed instead of failing
-    check:
+    - name: check
       glob: "*.lua"
       run: mise exec -- just check
