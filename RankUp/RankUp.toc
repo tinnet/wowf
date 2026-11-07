@@ -1,0 +1,8 @@
+## Interface: 16001
+## Title: RankUp
+## Notes: Replaces lower spell ranks on your action bars with the highest rank you know.
+## Author: Martin Contento
+## Version: 0.1.0
+## SavedVariables: RankUpDB
+
+RankUp.lua
