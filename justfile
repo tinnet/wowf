@@ -21,7 +21,13 @@ api_docs := ".cache/wow-ui-source-forever/Interface/AddOns/Blizzard_APIDocumenta
 default:
     @just --list
 
-# symlink every addon (dir containing <name>/<name>.toc) into the WoW AddOns folder
+# how addons get into the game: symlinks, or full copies on Windows (where symlinks
+# need Developer Mode). Override with LINK_MODE=copy|symlink.
+link_mode := env("LINK_MODE", if os() == "windows" { "copy" } else { "symlink" })
+# a copied addon gets this marker, so only our own copies are ever replaced or removed
+marker := ".wowf-copy"
+
+# put every addon (dir containing <name>/<name>.toc) into the WoW AddOns folder
 link: _check-addons-dir
     #!/usr/bin/env bash
     set -euo pipefail
@@ -29,7 +35,19 @@ link: _check-addons-dir
         name="$(dirname "$toc")"
         [ "$(basename "$toc" .toc)" = "$name" ] || continue
         target="{{addons_dir}}/$name"
-        if [ -L "$target" ]; then
+        if [ "{{link_mode}}" = copy ]; then
+            # a fresh copy each time, so files deleted in the repo disappear too
+            if [ -L "$target" ]; then
+                rm "$target"
+            elif [ -e "$target" ] && [ ! -f "$target/{{marker}}" ]; then
+                echo "SKIP    $name (exists and is not a copy from this repo)" >&2
+                continue
+            fi
+            rm -rf "$target"
+            cp -R "$PWD/$name" "$target"
+            echo "$PWD/$name" > "$target/{{marker}}"
+            echo "copied  $name"
+        elif [ -L "$target" ]; then
             echo "ok      $name"
         elif [ -e "$target" ]; then
             echo "SKIP    $name (exists and is not a symlink)" >&2
@@ -39,26 +57,33 @@ link: _check-addons-dir
         fi
     done
 
-# remove symlinks that point back into this repo
+# remove addons this repo put into the AddOns folder (symlinks and marked copies)
 unlink: _check-addons-dir
     #!/usr/bin/env bash
     set -euo pipefail
     for target in "{{addons_dir}}"/*; do
-        [ -L "$target" ] || continue
-        case "$(readlink "$target")" in
-            "$PWD"/*) rm "$target"; echo "unlinked $(basename "$target")" ;;
-        esac
+        if [ -L "$target" ]; then
+            case "$(readlink "$target")" in
+                "$PWD"/*) rm "$target"; echo "removed $(basename "$target")" ;;
+            esac
+        elif [ -f "$target/{{marker}}" ] && [ "$(cat "$target/{{marker}}")" = "$PWD/$(basename "$target")" ]; then
+            rm -rf "$target"
+            echo "removed $(basename "$target")"
+        fi
     done
 
-# show addons in the WoW folder that are linked from this repo
+# show the AddOns folder and which addons in it come from this repo
 status: _check-addons-dir
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "AddOns: {{addons_dir}}"
+    echo "AddOns: {{addons_dir}} (mode: {{link_mode}})"
     for target in "{{addons_dir}}"/*; do
-        [ -L "$target" ] || continue
-        dest="$(readlink "$target")"
-        case "$dest" in "$PWD"/*) echo "  $(basename "$target") -> $dest" ;; esac
+        if [ -L "$target" ]; then
+            dest="$(readlink "$target")"
+            case "$dest" in "$PWD"/*) echo "  $(basename "$target") -> $dest" ;; esac
+        elif [ -f "$target/{{marker}}" ]; then
+            echo "  $(basename "$target") (copy of $(cat "$target/{{marker}}"))"
+        fi
     done
 
 [private]
