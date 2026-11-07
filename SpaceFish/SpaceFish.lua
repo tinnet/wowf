@@ -167,6 +167,63 @@ end
 ---------------------------------------------------------------------------
 -- Minimap button
 ---------------------------------------------------------------------------
+local minimapButton
+
+local function placeMinimapButton()
+    local a = math.rad(db.minimapAngle or 200)
+    local r = Minimap:GetWidth() / 2 + 10
+    minimapButton:ClearAllPoints()
+    minimapButton:SetPoint("CENTER", Minimap, "CENTER", math.cos(a) * r, math.sin(a) * r)
+end
+
+-- Angles (degrees) of other small frames sitting around the minimap's rim:
+-- other addons' minimap buttons and Blizzard's (mail, tracking, ...).
+local function occupiedAngles()
+    local mx, my = Minimap:GetCenter()
+    local ms = Minimap:GetEffectiveScale()
+    local r = Minimap:GetWidth() / 2 * ms
+    local angles = {}
+    local function scan(parent)
+        if not parent then
+            return
+        end
+        for _, child in ipairs({ parent:GetChildren() }) do
+            local cx, cy = child:GetCenter()
+            if child ~= minimapButton and child:IsShown() and cx then
+                local cs = child:GetEffectiveScale()
+                local dx, dy = cx * cs - mx * ms, cy * cs - my * ms
+                local dist = math.sqrt(dx * dx + dy * dy)
+                local size = math.max(child:GetSize()) * cs
+                if size < r and dist > r * 0.75 and dist < r * 1.6 then
+                    angles[#angles + 1] = math.deg(math.atan2(dy, dx))
+                end
+            end
+        end
+    end
+    scan(Minimap)
+    scan(MinimapCluster)
+    return angles
+end
+
+-- Put the button in the biggest free gap on the rim (ties go to the default spot).
+local function autoPlaceMinimapButton()
+    local taken = occupiedAngles()
+    local bestAngle, bestGap = 200, -1
+    for step = 0, 71 do
+        local a = (200 + step * 5) % 360
+        local gap = 180
+        for _, t in ipairs(taken) do
+            local d = math.abs((a - t + 180) % 360 - 180)
+            gap = math.min(gap, d)
+        end
+        if gap > bestGap then
+            bestAngle, bestGap = a, gap
+        end
+    end
+    db.minimapAngle = bestAngle
+    placeMinimapButton()
+end
+
 local function createMinimapButton()
     local b = CreateFrame("Button", "SpaceFishMinimapButton", Minimap)
     b:SetSize(31, 31)
@@ -191,19 +248,12 @@ local function createMinimapButton()
     border:SetSize(53, 53)
     border:SetPoint("TOPLEFT")
 
-    local function place()
-        local a = math.rad(db.minimapAngle or 200)
-        local r = Minimap:GetWidth() / 2 + 10
-        b:ClearAllPoints()
-        b:SetPoint("CENTER", Minimap, "CENTER", math.cos(a) * r, math.sin(a) * r)
-    end
-
     local function onDragUpdate()
         local mx, my = Minimap:GetCenter()
         local px, py = GetCursorPosition()
         local scale = Minimap:GetEffectiveScale()
         db.minimapAngle = math.deg(math.atan2(py / scale - my, px / scale - mx))
-        place()
+        placeMinimapButton()
     end
 
     b:SetScript("OnDragStart", function(self)
@@ -224,7 +274,8 @@ local function createMinimapButton()
         GameTooltip:Hide()
     end)
 
-    place()
+    minimapButton = b
+    placeMinimapButton()
 end
 
 ---------------------------------------------------------------------------
@@ -245,6 +296,11 @@ events:SetScript("OnEvent", function(_, event, arg1, _, spellID)
         createWindow()
         createMinimapButton()
         events:UnregisterEvent("ADDON_LOADED")
+    elseif event == "PLAYER_LOGIN" then
+        if not db.minimapAngle then
+            -- first run: wait for other addons to place their buttons, then avoid them
+            C_Timer.After(2, autoPlaceMinimapButton)
+        end
     elseif event == "UNIT_SPELLCAST_CHANNEL_START" then
         if isFishing(spellID) then
             fishing = true
@@ -267,6 +323,7 @@ events:SetScript("OnEvent", function(_, event, arg1, _, spellID)
 end)
 
 events:RegisterEvent("ADDON_LOADED")
+events:RegisterEvent("PLAYER_LOGIN")
 events:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START", "player")
 events:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_STOP", "player")
 events:RegisterEvent("PLAYER_REGEN_DISABLED")
@@ -279,4 +336,10 @@ function SpaceFish_Toggle()
 end
 
 SLASH_SPACEFISH1 = "/spacefish"
-SlashCmdList.SPACEFISH = SpaceFish_Toggle
+SlashCmdList.SPACEFISH = function(msg)
+    if msg:lower():match("^%s*minimap") then
+        autoPlaceMinimapButton() -- re-pick a free spot on the rim
+    else
+        toggle()
+    end
+end
