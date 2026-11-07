@@ -80,7 +80,7 @@ f:SetScript("OnEvent", function(_, event, arg1)
         f:UnregisterEvent("ADDON_LOADED")
     elseif event == "PLAYER_LOGIN" then
         queueScan(2)
-    elseif event == "LEARNED_SPELL_IN_TAB" then
+    elseif event == "LEARNED_SPELL_IN_TAB" or event == "CHARACTER_POINTS_CHANGED" then
         queueScan()
     elseif event == "PLAYER_REGEN_ENABLED" then
         f:UnregisterEvent("PLAYER_REGEN_ENABLED")
@@ -91,6 +91,7 @@ end)
 f:RegisterEvent("ADDON_LOADED")
 f:RegisterEvent("PLAYER_LOGIN")
 f:RegisterEvent("LEARNED_SPELL_IN_TAB")
+f:RegisterEvent("CHARACTER_POINTS_CHANGED") -- talents can grant spells/ranks
 
 SLASH_RANKUP1 = "/rankup"
 SlashCmdList.RANKUP = function(msg)
