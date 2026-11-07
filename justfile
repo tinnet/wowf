@@ -69,16 +69,20 @@ setup:
     fetch https://github.com/NumyAddon/FramexmlAnnotations.git forever .cache/framexml-forever
 
 # syntax-check with Lua 5.1, check events/C_ APIs against Forever's docs, type-check with LuaLS
-check:
+check: _ensure-setup
     #!/usr/bin/env bash
     set -euo pipefail
-    [ -d "{{api_docs}}" ] || just setup
     for f in {{lua_files}}; do {{x}} luac -p "$f"; done
     echo "luac 5.1: ok"
     {{x}} lua scripts/check-api.lua "{{api_docs}}" {{lua_files}}
     out="$({ {{x}} lua-language-server --check . --checklevel=Warning 2>&1 || true; } | tr '\r' '\n' | sed 's/\x1b\[[0-9;]*m//g' | grep -v -e '^Initializing' -e '>>>>' -e '^ *$')"
     echo "$out"
     grep -q "no problems found" <<<"$out"
+
+# run setup only if the cache is missing (just has no "is this up to date" check of its own)
+[private]
+_ensure-setup:
+    @[ -d "{{api_docs}}" ] || {{just_executable()}} setup
 
 # format all addon Lua with stylua
 fmt:
