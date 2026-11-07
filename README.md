@@ -1,0 +1,47 @@
+# wowf
+
+Small personal addons for WoW Forever (client 1.60.x, `## Interface: 16001`).
+
+| Addon | What it does |
+|-------|--------------|
+| [RankUp](RankUp/) | Replaces lower spell ranks on your action bars with the highest rank you know. Runs on login, when you learn a spell, and when talent points change. `/rankup` for options (ignore list for deliberate downranks). |
+
+## Setup
+
+Tools are managed with [mise](https://mise.jdx.dev/) (`mise.toml`): `just`, Lua 5.1,
+lua-language-server, and StyLua.
+
+```sh
+mise install     # install the tools
+just setup       # fetch WoW API annotations for the checker
+just link        # symlink the addons into the game
+```
+
+Every recipe runs its tools through `mise exec`, so you don't need mise activated in
+your shell. If it isn't, run just itself with `mise exec -- just <recipe>`.
+
+## Recipes
+
+| Recipe | What it does |
+|--------|--------------|
+| `just` | Lists all recipes. |
+| `just link` | Symlinks each addon into `…/_forever_/Interface/AddOns`. An addon is any folder `Name/` that contains `Name/Name.toc`. Links that already exist are left alone, and a real folder with the same name is skipped, never overwritten. Run it again after adding a new addon. |
+| `just unlink` | Removes the symlinks in the AddOns folder that point back into this repo. Other addons aren't touched. |
+| `just status` | Shows which addons are linked from this repo. |
+| `just setup` | Clones or updates the annotations into `.cache/` (gitignored): [Ketho/vscode-wow-api](https://github.com/Ketho/vscode-wow-api) for the game API, events, and widgets, and the `forever` branch of [NumyAddon/FramexmlAnnotations](https://github.com/NumyAddon/FramexmlAnnotations) for Blizzard's UI code. Both are MIT licensed. Rerun it after a game patch. |
+| `just check` | Syntax-checks every addon `.lua` with the real Lua 5.1 `luac` (the game's Lua version, which rejects 5.2+ syntax such as `goto` and `//`). Then runs `lua-language-server --check` for undefined globals, typos, and wrong argument types. Runs `setup` first if the annotations are missing. Exits non-zero if it finds problems. |
+| `just fmt` | Formats addon Lua with StyLua (`.stylua.toml`: 4 spaces, 100 columns). |
+| `just fmt-check` | Fails if anything isn't formatted. Changes nothing. |
+
+## Type stubs for Forever
+
+Ketho's annotations follow retail, which removed many classic functions
+(`GetSpellInfo`, `GetSpellBookItemInfo`, `PickupSpell`, …). Those are declared in
+[`types/forever.lua`](types/forever.lua). If `just check` reports an undefined global
+that works in-game, add a stub there. Only add functions you've confirmed exist on
+the Forever client.
+
+## In-game testing
+
+`/console scriptErrors 1` shows Lua errors, and `/reload` loads code changes.
+Changes to a `.toc` file only take effect after a full client restart.
