@@ -1,6 +1,6 @@
 local ADDON = ...
 local NUM_SLOTS = 120
-local BOOKTYPE = BOOKTYPE_SPELL or "spell"
+local BANK = Enum.SpellBookSpellBank.Player
 
 local f = CreateFrame("Frame")
 local pending = false -- a scan is queued (debounce)
@@ -9,24 +9,21 @@ local function print_(msg)
     DEFAULT_CHAT_FRAME:AddMessage("|cff33ff99RankUp|r: " .. msg)
 end
 
-local function rankOf(spellID)
-    local sub = GetSpellSubtext and GetSpellSubtext(spellID)
-    return sub and tonumber(sub:match("(%d+)"))
-end
-
--- name -> { id = spellID, rank = n } for the highest rank in the spellbook
+-- spell name -> spellID of the highest rank in the spellbook
 local function buildBestRanks()
     local best = {}
-    for tab = 1, GetNumSpellTabs() do
-        local _, _, offset, numSpells = GetSpellTabInfo(tab)
-        for i = offset + 1, offset + numSpells do
-            local kind, id = GetSpellBookItemInfo(i, BOOKTYPE)
-            if kind == "SPELL" and id then
-                local name = GetSpellInfo(id)
-                local rank = rankOf(id)
-                if name and rank and (not best[name] or rank > best[name].rank) then
-                    best[name] = { id = id, rank = rank }
-                end
+    for line = 1, C_SpellBook.GetNumSpellBookSkillLines() do
+        local info = C_SpellBook.GetSpellBookSkillLineInfo(line)
+        for slot = info.itemIndexOffset + 1, info.itemIndexOffset + info.numSpellBookItems do
+            local item = C_SpellBook.GetSpellBookItemInfo(slot, BANK)
+            if
+                item
+                and item.itemType == Enum.SpellBookItemType.Spell
+                and item.spellID
+                and not item.isPassive
+                and not C_SpellBook.IsSpellBookItemLowRank(slot, BANK)
+            then
+                best[item.name] = item.spellID
             end
         end
     end
@@ -53,14 +50,19 @@ local function scan()
     for slot = 1, NUM_SLOTS do
         local kind, id = GetActionInfo(slot)
         if kind == "spell" and id then
-            local name = GetSpellInfo(id)
-            local b = name and best[name]
-            local cur = rankOf(id)
-            if b and cur and b.id ~= id and b.rank > cur and not ignore[name] then
-                PickupSpell(b.id)
+            local name = C_Spell.GetSpellName(id)
+            local newID = name and best[name]
+            if
+                newID
+                and newID ~= id
+                and not ignore[name]
+                and not C_ActionBar.IsHighestSpellRank(id)
+            then
+                local from, to = C_Spell.GetSpellSubtext(id), C_Spell.GetSpellSubtext(newID)
+                C_Spell.PickupSpell(newID)
                 PlaceAction(slot)
                 ClearCursor()
-                print_(("%s: rank %d -> %d (slot %d)"):format(name, cur, b.rank, slot))
+                print_(("%s: %s -> %s (slot %d)"):format(name, from or "?", to or "?", slot))
             end
         end
     end
@@ -84,7 +86,7 @@ f:SetScript("OnEvent", function(_, event, arg1)
         f:UnregisterEvent("ADDON_LOADED")
     elseif event == "PLAYER_LOGIN" then
         queueScan(2)
-    elseif event == "LEARNED_SPELL_IN_TAB" or event == "CHARACTER_POINTS_CHANGED" then
+    elseif event == "LEARNED_SPELL_IN_SKILL_LINE" or event == "CHARACTER_POINTS_CHANGED" then
         queueScan()
     elseif event == "PLAYER_REGEN_ENABLED" then
         f:UnregisterEvent("PLAYER_REGEN_ENABLED")
@@ -94,7 +96,7 @@ end)
 
 f:RegisterEvent("ADDON_LOADED")
 f:RegisterEvent("PLAYER_LOGIN")
-f:RegisterEvent("LEARNED_SPELL_IN_TAB")
+f:RegisterEvent("LEARNED_SPELL_IN_SKILL_LINE")
 f:RegisterEvent("CHARACTER_POINTS_CHANGED") -- talents can grant spells/ranks
 
 SLASH_RANKUP1 = "/rankup"

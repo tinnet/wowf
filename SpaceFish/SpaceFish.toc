@@ -4,5 +4,7 @@
 ## Author: Martin Contento
 ## Version: 0.1.0
 ## SavedVariables: SpaceFishDB
+## IconTexture: Interface\Icons\Trade_Fishing
+## AddonCompartmentFunc: SpaceFish_Toggle
 
 SpaceFish.lua

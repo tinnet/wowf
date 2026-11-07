@@ -1,5 +1,5 @@
 local ADDON = ...
-local FISHING = GetSpellInfo(7620) or "Fishing"
+local FISHING = C_Spell.GetSpellName(7620) or "Fishing"
 
 -- Soft-target settings so "Interact with Target" picks up the bobber.
 -- Previous values are stored in SavedVariables and restored on close.
@@ -231,7 +231,7 @@ end
 -- Events
 ---------------------------------------------------------------------------
 local function isFishing(spellID)
-    return spellID and GetSpellInfo(spellID) == FISHING
+    return spellID and C_Spell.GetSpellName(spellID) == FISHING
 end
 
 events:SetScript("OnEvent", function(_, event, arg1, _, spellID)
@@ -273,7 +273,10 @@ events:RegisterEvent("PLAYER_REGEN_DISABLED")
 events:RegisterEvent("PLAYER_REGEN_ENABLED")
 events:RegisterEvent("PLAYER_LOGOUT")
 
-SLASH_SPACEFISH1 = "/spacefish"
-SlashCmdList.SPACEFISH = function()
+-- also listed in the minimap's addon menu (AddonCompartmentFunc in the .toc)
+function SpaceFish_Toggle()
     toggle()
 end
+
+SLASH_SPACEFISH1 = "/spacefish"
+SlashCmdList.SPACEFISH = SpaceFish_Toggle

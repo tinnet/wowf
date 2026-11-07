@@ -2,7 +2,8 @@ addons_dir := "/home/selkie/Games/battlenet/drive_c/Program Files (x86)/World of
 
 # run tools from mise.toml even if mise isn't activated in the shell
 x := "mise exec --"
-lua_files := "$(git ls-files --cached --others --exclude-standard '*.lua' ':!types/*')"
+lua_files := "$(git ls-files --cached --others --exclude-standard '*.lua' ':!types/*' ':!scripts/*')"
+api_docs := ".cache/wow-ui-source-forever/Interface/AddOns/Blizzard_APIDocumentationGenerated"
 
 # list recipes
 default:
@@ -41,7 +42,7 @@ unlink:
 status:
     @find "{{addons_dir}}" -maxdepth 1 -type l -lname "$PWD/*" -printf '%f -> %l\n'
 
-# fetch/update WoW API annotations used by lua-language-server
+# fetch/update Forever UI source + API docs and LuaLS annotations; install git hooks
 setup:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -55,16 +56,26 @@ setup:
         fi
         echo "$3: $(git -C "$3" log -1 --format='%cs %s')"
     }
+    # Blizzard's own UI code + generated API docs for the Forever client (source of truth)
+    src=.cache/wow-ui-source-forever
+    if [ ! -d "$src/.git" ]; then
+        git clone -q --depth 1 --filter=blob:none --sparse -b forever https://github.com/Gethe/wow-ui-source.git "$src"
+        git -C "$src" sparse-checkout set --no-cone '/Interface/AddOns/'
+    else
+        git -C "$src" fetch -q --depth 1 origin forever && git -C "$src" reset -q --hard FETCH_HEAD
+    fi
+    echo "$src: $(git -C "$src" log -1 --format='%cs %s')"
     fetch https://github.com/Ketho/vscode-wow-api.git master .cache/vscode-wow-api
     fetch https://github.com/NumyAddon/FramexmlAnnotations.git forever .cache/framexml-forever
 
-# syntax-check with Lua 5.1 and type-check against the WoW API
+# syntax-check with Lua 5.1, check events/C_ APIs against Forever's docs, type-check with LuaLS
 check:
     #!/usr/bin/env bash
     set -euo pipefail
-    [ -d .cache/vscode-wow-api ] || just setup
+    [ -d "{{api_docs}}" ] || just setup
     for f in {{lua_files}}; do {{x}} luac -p "$f"; done
     echo "luac 5.1: ok"
+    {{x}} lua scripts/check-api.lua "{{api_docs}}" {{lua_files}}
     out="$({ {{x}} lua-language-server --check . --checklevel=Warning 2>&1 || true; } | tr '\r' '\n' | sed 's/\x1b\[[0-9;]*m//g' | grep -v -e '^Initializing' -e '>>>>' -e '^ *$')"
     echo "$out"
     grep -q "no problems found" <<<"$out"
