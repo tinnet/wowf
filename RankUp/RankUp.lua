@@ -4,7 +4,6 @@ local BOOKTYPE = BOOKTYPE_SPELL or "spell"
 
 local f = CreateFrame("Frame")
 local pending = false   -- a scan is queued (debounce)
-local deferred = false  -- a scan was blocked by combat
 
 local function print_(msg)
     DEFAULT_CHAT_FRAME:AddMessage("|cff33ff99RankUp|r: " .. msg)
@@ -37,7 +36,8 @@ end
 local function scan()
     pending = false
     if InCombatLockdown() then
-        deferred = true
+        -- only listen for leaving combat while a scan is waiting on it
+        f:RegisterEvent("PLAYER_REGEN_ENABLED")
         return
     end
     if GetCursorInfo() then
@@ -83,17 +83,14 @@ f:SetScript("OnEvent", function(_, event, arg1)
     elseif event == "LEARNED_SPELL_IN_TAB" then
         queueScan()
     elseif event == "PLAYER_REGEN_ENABLED" then
-        if deferred then
-            deferred = false
-            queueScan()
-        end
+        f:UnregisterEvent("PLAYER_REGEN_ENABLED")
+        queueScan()
     end
 end)
 
 f:RegisterEvent("ADDON_LOADED")
 f:RegisterEvent("PLAYER_LOGIN")
 f:RegisterEvent("LEARNED_SPELL_IN_TAB")
-f:RegisterEvent("PLAYER_REGEN_ENABLED")
 
 SLASH_RANKUP1 = "/rankup"
 SlashCmdList.RANKUP = function(msg)
