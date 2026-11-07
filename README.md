@@ -19,6 +19,13 @@ just setup       # fetch WoW API annotations, install git hooks
 just link        # symlink the addons into the game
 ```
 
+The AddOns folder is derived from `WOW_DIR`, the folder that contains `_forever_`.
+The defaults are `C:/Program Files (x86)/World of Warcraft` on Windows,
+`/Applications/World of Warcraft` on macOS, and a Wine prefix at
+`~/Games/battlenet/drive_c/Program Files (x86)/World of Warcraft` on Linux. To use a
+different location, set `WOW_DIR` in your environment or in a `.env` file (gitignored).
+`just status` prints the path in use.
+
 Every recipe runs its tools through `mise exec`, so you don't need mise activated in
 your shell. If it isn't, run just itself with `mise exec -- just <recipe>`.
 

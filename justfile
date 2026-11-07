@@ -1,4 +1,16 @@
-addons_dir := "/home/selkie/Games/battlenet/drive_c/Program Files (x86)/World of Warcraft/_forever_/Interface/AddOns"
+set dotenv-load
+
+# WoW install root (the folder that contains _forever_). Override with WOW_DIR in the
+# environment or in a .env file (gitignored). Linux has no standard location; the default
+# is a Wine prefix at ~/Games/battlenet.
+wow_dir := env("WOW_DIR", if os() == "windows" {
+    "C:/Program Files (x86)/World of Warcraft"
+} else if os() == "macos" {
+    "/Applications/World of Warcraft"
+} else {
+    home_directory() / "Games/battlenet/drive_c/Program Files (x86)/World of Warcraft"
+})
+addons_dir := wow_dir / "_forever_/Interface/AddOns"
 
 # run tools from mise.toml even if mise isn't activated in the shell
 x := "mise exec --"
@@ -10,7 +22,7 @@ default:
     @just --list
 
 # symlink every addon (dir containing <name>/<name>.toc) into the WoW AddOns folder
-link:
+link: _check-addons-dir
     #!/usr/bin/env bash
     set -euo pipefail
     for toc in */*.toc; do
@@ -28,7 +40,7 @@ link:
     done
 
 # remove symlinks that point back into this repo
-unlink:
+unlink: _check-addons-dir
     #!/usr/bin/env bash
     set -euo pipefail
     for target in "{{addons_dir}}"/*; do
@@ -39,8 +51,19 @@ unlink:
     done
 
 # show addons in the WoW folder that are linked from this repo
-status:
-    @find "{{addons_dir}}" -maxdepth 1 -type l -lname "$PWD/*" -printf '%f -> %l\n'
+status: _check-addons-dir
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "AddOns: {{addons_dir}}"
+    for target in "{{addons_dir}}"/*; do
+        [ -L "$target" ] || continue
+        dest="$(readlink "$target")"
+        case "$dest" in "$PWD"/*) echo "  $(basename "$target") -> $dest" ;; esac
+    done
+
+[private]
+_check-addons-dir:
+    @[ -d "{{addons_dir}}" ] || { echo "AddOns folder not found: {{addons_dir}}" >&2; echo "Set WOW_DIR (env or .env) to the folder that contains _forever_." >&2; exit 1; }
 
 # fetch/update Forever UI source + API docs and LuaLS annotations; install git hooks
 setup:
