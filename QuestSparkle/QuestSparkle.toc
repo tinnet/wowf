@@ -1,0 +1,7 @@
+## Interface: 16001
+## Title: QuestSparkle
+## Notes: Keeps the game's loot sparkle on quest items switched on, even after graphics presets reset it.
+## Author: Martin Contento
+## Version: 0.1.0
+
+QuestSparkle.lua

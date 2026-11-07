@@ -6,6 +6,7 @@ Small personal addons for WoW Forever (client 1.60.x, `## Interface: 16001`).
 |-------|--------------|
 | [RankUp](RankUp/) | Replaces lower spell ranks on your action bars with the highest rank you know. Runs on login, when you learn a spell, and when talent points change. `/rankup` for options (ignore list for deliberate downranks). |
 | [SpaceFish](SpaceFish/) | Minimap button (or `/spacefish`) opens a small window. While it's open, Space casts Fishing and the next press reels in; Shift+Space jumps. Shows lure time left. Also listed in the minimap's addon menu. On first run the button picks the biggest free gap around the minimap; `/spacefish minimap` re-picks. Closing it (X, Escape, button) gives Space back. Combat always gives Space back to jump. |
+| [QuestSparkle](QuestSparkle/) | Keeps the game's own loot sparkle on quest items switched on (`outlineModeShowLootEffectWhenDisabled`): sets it at login and again after a graphics preset change resets it. Nothing else, no options. |
 
 ## Setup
 
