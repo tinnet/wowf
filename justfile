@@ -65,7 +65,7 @@ check:
     [ -d .cache/vscode-wow-api ] || just setup
     for f in {{lua_files}}; do {{x}} luac -p "$f"; done
     echo "luac 5.1: ok"
-    out="$({{x}} lua-language-server --check . --checklevel=Warning 2>&1 | tr '\r' '\n' | sed 's/\x1b\[[0-9;]*m//g' | grep -v -e '^Initializing' -e '>>>>' -e '^ *$')"
+    out="$({ {{x}} lua-language-server --check . --checklevel=Warning 2>&1 || true; } | tr '\r' '\n' | sed 's/\x1b\[[0-9;]*m//g' | grep -v -e '^Initializing' -e '>>>>' -e '^ *$')"
     echo "$out"
     grep -q "no problems found" <<<"$out"
 
