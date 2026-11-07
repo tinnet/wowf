@@ -14,3 +14,7 @@ SlashCmdList = {}
 
 ---@type MessageFrame
 DEFAULT_CHAT_FRAME = {}
+
+--- Blizzard_FrameXMLBase/Constants.lua
+---@type integer
+INVSLOT_MAINHAND = 16

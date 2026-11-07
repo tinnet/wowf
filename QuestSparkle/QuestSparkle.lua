@@ -6,6 +6,8 @@ local CVAR = "outlineModeShowLootEffectWhenDisabled"
 local RESETTERS = {
     graphicsquality = true,
     raidgraphicsquality = true,
+    graphicsoutlinemode = true, -- set by presets, and on its own in the settings
+    raidgraphicsoutlinemode = true,
     [CVAR:lower()] = true,
 }
 

@@ -16,6 +16,10 @@ local ticker
 local events = CreateFrame("Frame")
 local window, statusText, lureText
 
+local function isFishing(spellID)
+    return spellID and C_Spell.GetSpellName(spellID) == FISHING
+end
+
 local function msg(text)
     DEFAULT_CHAT_FRAME:AddMessage("|cff33ff99SpaceFish|r: " .. text)
 end
@@ -27,13 +31,10 @@ local castButton =
     CreateFrame("Button", "SpaceFishCastButton", UIParent, "SecureActionButtonTemplate")
 castButton:SetAttribute("type", "spell")
 castButton:SetAttribute("spell", FISHING)
+-- SecureActionButton_OnClick only acts on the phase that matches the "cast on key down"
+-- setting, so registering both casts once per press and follows that setting live.
+castButton:RegisterForClicks("AnyUp", "AnyDown")
 -- left shown (but sizeless, so invisible) so binding clicks always reach it
-
-local function registerClicks()
-    -- One click per key press, matching the "cast on key down" setting.
-    -- Registering both would cast twice and restart the channel.
-    castButton:RegisterForClicks(GetCVarBool("ActionButtonUseKeyDown") and "AnyDown" or "AnyUp")
-end
 
 ---------------------------------------------------------------------------
 -- CVars
@@ -77,6 +78,7 @@ end
 
 local function applyBindings()
     if InCombatLockdown() then
+        setStatus()
         return -- PLAYER_REGEN_ENABLED will call us again
     end
     ClearOverrideBindings(events)
@@ -95,9 +97,9 @@ end
 -- Lure status
 ---------------------------------------------------------------------------
 local function updateLure()
-    local hasMain, expiresMs = GetWeaponEnchantInfo()
-    if hasMain and expiresMs then
-        local s = math.floor(expiresMs / 1000)
+    local enchant = C_PaperDollInfo.GetTemporaryEnchantmentInfo(INVSLOT_MAINHAND)
+    if enchant then
+        local s = math.floor(enchant.remainingTimeMs / 1000)
         lureText:SetFormattedText("Lure: |cff55ff55%d:%02d|r", math.floor(s / 60), s % 60)
     else
         lureText:SetText("Lure: |cffff5555none|r")
@@ -110,7 +112,13 @@ end
 local function createWindow()
     window = CreateFrame("Frame", "SpaceFishWindow", UIParent, "BasicFrameTemplateWithInset")
     window:SetSize(200, 96)
-    window:SetPoint(db.point or "CENTER", UIParent, db.point or "CENTER", db.x or 0, db.y or 0)
+    window:SetPoint(
+        db.point or "CENTER",
+        UIParent,
+        db.relativePoint or db.point or "CENTER",
+        db.x or 0,
+        db.y or 0
+    )
     window:SetFrameStrata("MEDIUM")
     window:SetClampedToScreen(true)
     window:SetMovable(true)
@@ -119,8 +127,8 @@ local function createWindow()
     window:SetScript("OnDragStart", window.StartMoving)
     window:SetScript("OnDragStop", function(self)
         self:StopMovingOrSizing()
-        local point, _, _, x, y = self:GetPoint()
-        db.point, db.x, db.y = point, x, y
+        local point, _, relativePoint, x, y = self:GetPoint()
+        db.point, db.relativePoint, db.x, db.y = point, relativePoint, x, y
     end)
     window:Hide()
 
@@ -141,7 +149,8 @@ local function createWindow()
     lureText:SetPoint("TOPLEFT", hint, "BOTTOMLEFT", 0, -6)
 
     window:SetScript("OnShow", function()
-        registerClicks()
+        -- already channeling (cast from an action bar): Space should reel in, not recast
+        fishing = isFishing(select(8, UnitChannelInfo("player"))) or false
         applyCVars()
         applyBindings()
         updateLure()
@@ -281,10 +290,6 @@ end
 ---------------------------------------------------------------------------
 -- Events
 ---------------------------------------------------------------------------
-local function isFishing(spellID)
-    return spellID and C_Spell.GetSpellName(spellID) == FISHING
-end
-
 events:SetScript("OnEvent", function(_, event, arg1, _, spellID)
     if event == "ADDON_LOADED" then
         if arg1 ~= ADDON then

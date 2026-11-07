@@ -1,5 +1,7 @@
 local ADDON = ...
-local NUM_SLOTS = 120
+-- action slots that hold the player's own spells: bars 1-6 plus class bonus bars
+-- (pages 1-10), and MultiBar5-7 (pages 13-15). Pages 11-12 are override/possess bars.
+local SLOT_RANGES = { { 1, 120 }, { 145, 180 } }
 local BANK = Enum.SpellBookSpellBank.Player
 
 local f = CreateFrame("Frame")
@@ -47,22 +49,24 @@ local function scan()
     local best = buildBestRanks()
     local ignore = RankUpDB.ignore
 
-    for slot = 1, NUM_SLOTS do
-        local kind, id = GetActionInfo(slot)
-        if kind == "spell" and id then
-            local name = C_Spell.GetSpellName(id)
-            local newID = name and best[name]
-            if
-                newID
-                and newID ~= id
-                and not ignore[name]
-                and not C_ActionBar.IsHighestSpellRank(id)
-            then
-                local from, to = C_Spell.GetSpellSubtext(id), C_Spell.GetSpellSubtext(newID)
-                C_Spell.PickupSpell(newID)
-                PlaceAction(slot)
-                ClearCursor()
-                print_(("%s: %s -> %s (slot %d)"):format(name, from or "?", to or "?", slot))
+    for _, range in ipairs(SLOT_RANGES) do
+        for slot = range[1], range[2] do
+            local kind, id = GetActionInfo(slot)
+            if kind == "spell" and id then
+                local name = C_Spell.GetSpellName(id)
+                local newID = name and best[name]
+                if
+                    newID
+                    and newID ~= id
+                    and not ignore[name:lower()]
+                    and not C_ActionBar.IsHighestSpellRank(id)
+                then
+                    local from, to = C_Spell.GetSpellSubtext(id), C_Spell.GetSpellSubtext(newID)
+                    C_Spell.PickupSpell(newID)
+                    PlaceAction(slot)
+                    ClearCursor()
+                    print_(("%s: %s -> %s (slot %d)"):format(name, from or "?", to or "?", slot))
+                end
             end
         end
     end
@@ -82,7 +86,12 @@ f:SetScript("OnEvent", function(_, event, arg1)
             return
         end
         RankUpDB = RankUpDB or {}
-        RankUpDB.ignore = RankUpDB.ignore or {}
+        -- ignore list is keyed by lowercase spell name (older saves used typed case)
+        local ignore = {}
+        for name in pairs(RankUpDB.ignore or {}) do
+            ignore[name:lower()] = true
+        end
+        RankUpDB.ignore = ignore
         f:UnregisterEvent("ADDON_LOADED")
     elseif event == "PLAYER_LOGIN" then
         queueScan(2)
@@ -104,10 +113,10 @@ SlashCmdList.RANKUP = function(msg)
     local cmd, rest = (msg or ""):match("^%s*(%S*)%s*(.-)%s*$")
     cmd = cmd:lower()
     if cmd == "ignore" and rest ~= "" then
-        RankUpDB.ignore[rest] = true
+        RankUpDB.ignore[rest:lower()] = true
         print_("ignoring " .. rest)
     elseif cmd == "unignore" and rest ~= "" then
-        RankUpDB.ignore[rest] = nil
+        RankUpDB.ignore[rest:lower()] = nil
         print_("no longer ignoring " .. rest)
     elseif cmd == "list" then
         local n = 0
