@@ -1,0 +1,17 @@
+{
+  "$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
+  "runtime.version": "Lua 5.1",
+  "runtime.builtin": {
+    "io": "disable",
+    "os": "disable",
+    "package": "disable",
+    "debug": "disable"
+  },
+  "workspace.library": [
+    ".cache/vscode-wow-api/Annotations/Core",
+    ".cache/framexml-forever/Annotations",
+    "types"
+  ],
+  "workspace.ignoreDir": [".cache"],
+  "workspace.checkThirdParty": false
+}

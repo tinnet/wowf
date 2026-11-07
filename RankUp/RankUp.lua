@@ -3,7 +3,7 @@ local NUM_SLOTS = 120
 local BOOKTYPE = BOOKTYPE_SPELL or "spell"
 
 local f = CreateFrame("Frame")
-local pending = false   -- a scan is queued (debounce)
+local pending = false -- a scan is queued (debounce)
 
 local function print_(msg)
     DEFAULT_CHAT_FRAME:AddMessage("|cff33ff99RankUp|r: " .. msg)
@@ -67,14 +67,18 @@ local function scan()
 end
 
 local function queueScan(delay)
-    if pending then return end
+    if pending then
+        return
+    end
     pending = true
     C_Timer.After(delay or 0.5, scan)
 end
 
 f:SetScript("OnEvent", function(_, event, arg1)
     if event == "ADDON_LOADED" then
-        if arg1 ~= ADDON then return end
+        if arg1 ~= ADDON then
+            return
+        end
         RankUpDB = RankUpDB or {}
         RankUpDB.ignore = RankUpDB.ignore or {}
         f:UnregisterEvent("ADDON_LOADED")
@@ -109,7 +113,9 @@ SlashCmdList.RANKUP = function(msg)
             print_("  " .. name)
             n = n + 1
         end
-        if n == 0 then print_("ignore list is empty") end
+        if n == 0 then
+            print_("ignore list is empty")
+        end
     elseif cmd == "scan" then
         scan()
     else
