@@ -5,6 +5,10 @@
 ---@type table<string, fun(msg: string, editBox: table)>
 SlashCmdList = {}
 
+--- Frame names closed by Escape (FrameXML)
+---@type string[]
+UISpecialFrames = {}
+
 ---@type MessageFrame
 DEFAULT_CHAT_FRAME = {}
 

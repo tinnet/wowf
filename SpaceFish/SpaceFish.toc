@@ -1,0 +1,8 @@
+## Interface: 16001
+## Title: SpaceFish
+## Notes: While the window is open, Space casts Fishing and reels in. Shift+Space jumps.
+## Author: Martin Contento
+## Version: 0.1.0
+## SavedVariables: SpaceFishDB
+
+SpaceFish.lua
