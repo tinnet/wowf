@@ -7,14 +7,15 @@ local BANK = Enum.SpellBookSpellBank.Player
 local BUTTON = "KindHandsButton"
 
 -- Rank 1 spell IDs (Classic numbering); names come from the client, ranks from
--- your spellbook. `who`: "any", "mana", "nomana", "self", or a set of classes.
+-- your spellbook. `who`: "any", "mana", "melee", "caster", "self", or a set of
+-- classes; it's what suits them (see the "only buffs that suit them" option).
 -- `me` overrides `who` for yourself. `also`: auras that count as having it
 -- (group versions, other armors). `blessing`: one per Paladin per unit.
 local BUFFS = {
     PALADIN = {
         { id = 20217, who = "any", blessing = true, also = { 25898 } }, -- Kings
-        { id = 19740, who = "nomana", me = true, blessing = true, also = { 25782 } }, -- Might
-        { id = 19742, who = "mana", me = false, blessing = true, also = { 25894 } }, -- Wisdom
+        { id = 19740, who = "melee", me = true, blessing = true, also = { 25782 } }, -- Might
+        { id = 19742, who = "caster", me = false, blessing = true, also = { 25894 } }, -- Wisdom
     },
     PRIEST = {
         { id = 1243, who = "any", also = { 21562 } }, -- Power Word: Fortitude
@@ -41,9 +42,14 @@ local BUFFS = {
 }
 
 local NO_MANA = { WARRIOR = true, ROGUE = true }
+-- Might goes to these; Druids too while in a form that uses rage or energy.
+-- Everyone else gets Wisdom. Hunters: Might is melee attack power only.
+local MELEE = { WARRIOR = true, ROGUE = true, PALADIN = true }
+local MANA_USER = { who = "mana" } -- for fits(): does the unit use mana at all
 local PARTY = { "party1", "party2", "party3", "party4" }
 
 local playerClass
+local db
 local ranks -- spell name -> its ranks you know, lowest level first; nil = rebuild
 
 local function say(msg)
@@ -164,24 +170,44 @@ local function fits(entry, unit, isMe)
         return false
     elseif who == "mana" then
         return not NO_MANA[class]
-    elseif who == "nomana" then
-        return NO_MANA[class] or false
+    elseif who == "melee" or who == "caster" then
+        local melee = MELEE[class]
+            or class == "DRUID" and plain(UnitPowerType(unit)) ~= Enum.PowerType.Mana
+            or false
+        return melee == (who == "melee")
     end
     return who[class] or false
 end
 
 -- The rank to cast on the unit, or nil when it has everything it can get from you.
+-- First the buffs that suit them. Then, as better than nothing: any Blessing (Might
+-- on a caster while you don't have Wisdom yet), or with the "only buffs that suit
+-- them" option off, any buff of yours they lack (Arcane Intellect on a Warrior).
 local function pickFor(unit, isMe)
     local blessed -- checked lazily: only Paladins need it
-    for _, entry in ipairs(BUFFS[playerClass] or {}) do
-        local name = C_Spell.GetSpellName(entry.id)
-        if name and ranks[name] and fits(entry, unit, isMe) and not has(unit, entry) then
-            if entry.blessing and blessed == nil then
-                blessed = hasMyBlessing(unit)
+    for pass = 1, 2 do
+        for _, entry in ipairs(BUFFS[playerClass] or {}) do
+            local name = C_Spell.GetSpellName(entry.id)
+            local wanted
+            if pass == 1 then
+                wanted = fits(entry, unit, isMe)
+            else
+                -- with the option on, never a mana buff (Wisdom) on a Warrior or Rogue
+                wanted = entry.who ~= "self"
+                    and not fits(entry, unit, isMe)
+                    and (
+                        not db.onlySuitable
+                        or entry.blessing and (entry.who ~= "caster" or fits(MANA_USER, unit))
+                    )
             end
-            local rank = not (entry.blessing and blessed) and bestRank(name, unit)
-            if rank and (isMe or plain(C_Spell.IsSpellInRange(rank.id, unit)) ~= false) then
-                return rank
+            if wanted and name and ranks[name] and not has(unit, entry) then
+                if entry.blessing and blessed == nil then
+                    blessed = hasMyBlessing(unit)
+                end
+                local rank = not (entry.blessing and blessed) and bestRank(name, unit)
+                if rank and (isMe or plain(C_Spell.IsSpellInRange(rank.id, unit)) ~= false) then
+                    return rank
+                end
             end
         end
     end
@@ -324,6 +350,28 @@ local function reachable()
     return false
 end
 
+local function registerSettings()
+    local category = Settings.RegisterVerticalLayoutCategory("KindHands")
+    local onlySuitable = Settings.RegisterAddOnSetting(
+        category,
+        "KINDHANDS_ONLY_SUITABLE",
+        "onlySuitable",
+        db,
+        Settings.VarType.Boolean,
+        "Only buffs that suit them",
+        Settings.Default.True
+    )
+    Settings.CreateCheckbox(
+        category,
+        onlySuitable,
+        "On: mana buffs only for mana users, Might for melee, Wisdom for casters (a "
+            .. "Blessing they can't make full use of is still given when it's all you have). "
+            .. "Off: once they have what suits them, give them anything else of yours they "
+            .. "lack, e.g. Arcane Intellect on a Warrior passing by."
+    )
+    Settings.RegisterAddOnCategory(category)
+end
+
 local f = CreateFrame("Frame")
 f:RegisterEvent("ADDON_LOADED")
 f:SetScript("OnEvent", function(self, event, arg)
@@ -346,6 +394,9 @@ f:SetScript("OnEvent", function(self, event, arg)
         end)
     elseif arg == ADDON then
         self:UnregisterEvent("ADDON_LOADED")
+        KindHandsDB = KindHandsDB or {}
+        db = KindHandsDB
+        registerSettings()
         local _, class = UnitClass("player")
         playerClass = class
         self:RegisterEvent("SPELLS_CHANGED")

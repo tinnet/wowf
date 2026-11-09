@@ -40,4 +40,8 @@ and aborts the rest of the file. Don't write from Classic memory; look it up:
    blocks protected actions ("<Addon> has been blocked from an action only available
    to the Blizzard UI"). `/console taintLog 1` writes `Logs/taint.log` to confirm.
 
+Facts about the Forever client and game data that we've verified (UI quirks, taint traps,
+spell changes from Classic) live in `docs/forever-notes.md`. Read it before building
+something new, and add to it with a source and date when something surprises us.
+
 Reading other addons on GitHub for ideas is fine; don't copy their code verbatim.
