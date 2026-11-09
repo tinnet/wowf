@@ -3,6 +3,7 @@
 ## Notes: Replaces lower spell ranks on your action bars with the highest rank you know.
 ## Author: Martin Contento
 ## Version: 0.1.0
+## IconTexture: Interface\Icons\Spell_ChargePositive
 ## SavedVariables: RankUpDB
 
 RankUp.lua
