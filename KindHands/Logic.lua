@@ -8,11 +8,20 @@ ns.Logic = Logic
 -- your spellbook. `who` is what suits them: "any", "mana", "melee", "caster",
 -- "self", or a set of classes. `me` overrides `who` for yourself. `also`: auras that
 -- count as having it (group versions, other armors). `blessing`: each Paladin's
--- Blessings replace each other, so one of yours per unit.
+-- Blessings replace each other, so one of yours per unit. `standsIn`: with "only buffs
+-- that suit them" on, this may go to someone that buff suits while you don't know it.
 Logic.BUFFS = {
     PALADIN = {
         { id = 20217, who = "any", blessing = true, also = { 25898 } }, -- Kings
-        { id = 19740, who = "melee", me = true, blessing = true, also = { 25782 } }, -- Might
+        -- Might stands in for Wisdom (better than nothing) while you don't know Wisdom
+        {
+            id = 19740,
+            who = "melee",
+            me = true,
+            blessing = true,
+            also = { 25782 },
+            standsIn = 19742,
+        },
         { id = 19742, who = "caster", me = false, blessing = true, also = { 25894 } }, -- Wisdom
     },
     PRIEST = {
@@ -128,7 +137,7 @@ local function hasMyBlessing(unit)
         if unit.mine[entry.id] then
             return true
         end
-        for _, id in ipairs(entry.also) do
+        for _, id in ipairs(entry.also or {}) do
             if unit.mine[id] then
                 return true
             end
@@ -139,10 +148,14 @@ end
 
 -- The ranks to try on the unit, best choice first (the caller skips ones out of
 -- range). `known` maps a buff's rank 1 ID to the ranks you know, lowest level first.
--- First the buffs that suit them. Then, as better than nothing: another Blessing
--- (Might on a caster while you don't know Wisdom), never a mana buff on a Warrior
--- or Rogue; or with onlySuitable off, any buff of yours they lack.
+-- First the buffs that suit them. Then, with onlySuitable on, only a stand-in for a
+-- suitable buff you don't know yet (Might on a caster before you learn Wisdom); with
+-- it off, any buff of yours they lack.
 function Logic.candidates(class, unit, known, onlySuitable)
+    local byID = {}
+    for _, entry in ipairs(Logic.BUFFS[class] or {}) do
+        byID[entry.id] = entry
+    end
     local out = {}
     local blessed = hasMyBlessing(unit)
     for pass = 1, 2 do
@@ -152,11 +165,12 @@ function Logic.candidates(class, unit, known, onlySuitable)
             if pass == 1 then
                 wanted = suits
             else
+                local stood = entry.standsIn and byID[entry.standsIn]
                 wanted = not suits
                     and entry.who ~= "self"
                     and (
                         not onlySuitable
-                        or entry.blessing and (entry.who ~= "caster" or usesMana(unit))
+                        or stood ~= nil and not known[stood.id] and Logic.fits(stood, unit)
                     )
             end
             if wanted and not present(entry, unit) and not (entry.blessing and blessed) then

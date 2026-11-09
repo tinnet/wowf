@@ -84,8 +84,27 @@ describe("Paladin blessings", function()
         assert.equal(MIGHT, first("PALADIN", unit("MAGE"), knows(MIGHT)))
     end)
 
-    it("gives a caster Might when another Paladin's Wisdom is on them", function()
-        assert.equal(MIGHT, first("PALADIN", unit("MAGE", { has = { WISDOM } }), noKings))
+    it("gives a caster nothing more once Wisdom is on them, from anyone", function()
+        local target = unit("MAGE", { has = { KINGS, WISDOM } })
+        assert.is_nil(first("PALADIN", target, all))
+        assert.is_nil(first("PALADIN", unit("MAGE", { has = { WISDOM } }), noKings))
+    end)
+
+    it("hands out Might to a caster with the option off", function()
+        local target = unit("MAGE", { has = { KINGS, WISDOM } })
+        assert.equal(MIGHT, first("PALADIN", target, all, false))
+    end)
+
+    it("doesn't stand Might in for Wisdom when the caster is too low for Wisdom", function()
+        local known = {
+            [MIGHT] = { { id = MIGHT, level = 4 } },
+            [WISDOM] = { { id = WISDOM, level = 14 } },
+        }
+        assert.is_nil(first("PALADIN", unit("MAGE", { level = 2 }), known))
+    end)
+
+    it("gives an unknown class no Might or Wisdom with the option on", function()
+        assert.is_nil(first("PALADIN", unit(nil, { power = nil }), noKings))
     end)
 
     it("never gives Wisdom to a Warrior or Rogue", function()

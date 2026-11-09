@@ -61,7 +61,23 @@ local function buildRanks()
     return found
 end
 
--- The unit as plain data for Logic (see the field list there).
+-- Spell name -> the watched ID it stands for (buffs and their `also`); with ranks.
+local watchedNames
+
+local function buildWatchedNames()
+    local names = {}
+    for _, id in ipairs(Logic.watchedIDs(playerClass)) do
+        local name = C_Spell.GetSpellName(id)
+        if name then
+            names[name] = id
+        end
+    end
+    return names
+end
+
+-- The unit as plain data for Logic (see the field list there). Walks all buffs
+-- instead of looking up by name: a name lookup returns only one of two same-named
+-- auras (two Paladins' Wisdom), which could hide yours.
 local function readUnit(unit, isMe)
     local data = {
         class = plain(select(2, UnitClass(unit))),
@@ -71,10 +87,13 @@ local function readUnit(unit, isMe)
         has = {},
         mine = {},
     }
-    for _, id in ipairs(Logic.watchedIDs(playerClass)) do
-        local name = C_Spell.GetSpellName(id)
-        local aura = name and C_UnitAuras.GetAuraDataBySpellName(unit, name, "HELPFUL")
-        if aura then
+    for i = 1, 40 do
+        local aura = C_UnitAuras.GetAuraDataByIndex(unit, i, "HELPFUL")
+        if not aura then
+            break
+        end
+        local id = watchedNames[plain(aura.name) or ""]
+        if id then
             data.has[id] = true
             local source = plain(aura.sourceUnit)
             if source and UnitIsUnit(source, "player") then
@@ -107,6 +126,7 @@ end
 -- Friendly target, then you, then your party. Returns rank, unit.
 local function pick()
     ranks = ranks or buildRanks()
+    watchedNames = watchedNames or buildWatchedNames()
     if canBuff("target") and not UnitIsUnit("target", "player") then
         local rank = pickFor("target", false)
         if rank then
@@ -246,8 +266,8 @@ local function registerSettings()
     Settings.CreateCheckbox(
         category,
         onlySuitable,
-        "On: mana buffs only for mana users, Might for melee, Wisdom for casters (a "
-            .. "Blessing they can't make full use of is still given when it's all you have). "
+        "On: only buffs that suit them: mana buffs for mana users, Might for melee, "
+            .. "Wisdom for casters (Might for casters too until you learn Wisdom). "
             .. "Off: once they have what suits them, give them anything else of yours they "
             .. "lack, e.g. Arcane Intellect on a Warrior passing by."
     )
