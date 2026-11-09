@@ -133,7 +133,7 @@ local function pick()
             return rank, "target"
         end
     end
-    local rank = pickFor("player", true)
+    local rank = db.buffSelf and pickFor("player", true)
     if rank then
         return rank, "player"
     end
@@ -252,6 +252,16 @@ local function reachable()
     return false
 end
 
+-- Whether you know any buff the button could cast, given the "Also buff myself" option.
+local function canGiveAnything()
+    for _, entry in ipairs(BUFFS[playerClass] or {}) do
+        if ranks[entry.id] and (db.buffSelf or entry.who ~= "self") then
+            return true
+        end
+    end
+    return false
+end
+
 local function registerSettings()
     local category = Settings.RegisterVerticalLayoutCategory("KindHands")
     local onlySuitable = Settings.RegisterAddOnSetting(
@@ -271,6 +281,23 @@ local function registerSettings()
             .. "Off: once they have what suits them, give them anything else of yours they "
             .. "lack, e.g. Arcane Intellect on a Warrior passing by."
     )
+
+    local buffSelf = Settings.RegisterAddOnSetting(
+        category,
+        "KINDHANDS_BUFF_SELF",
+        "buffSelf",
+        db,
+        Settings.VarType.Boolean,
+        "Also buff myself",
+        Settings.Default.True
+    )
+    Settings.CreateCheckbox(
+        category,
+        buffSelf,
+        "On: when your target has everything (or you have no friendly target), buff "
+            .. "yourself before your party, including self-only buffs like Inner Fire. "
+            .. "Off: only ever buff others."
+    )
     Settings.RegisterAddOnCategory(category)
 end
 
@@ -286,7 +313,7 @@ f:SetScript("OnEvent", function(self, event, arg)
             ranks = ranks or buildRanks()
             -- only nag when you know at least one buff (not Rogues, not a Hunter without
             -- Trueshot Aura, ...) and nothing reaches the button
-            if next(ranks) and not reachable() then
+            if canGiveAnything() and not reachable() then
                 chat(
                     "loaded, but there's no way to press it yet: bind a key "
                         .. "(Options > Keybindings > AddOns) or type /kindhands macro "
