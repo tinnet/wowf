@@ -333,7 +333,10 @@ f:SetScript("OnEvent", function(self, event, arg)
         -- once per login, after the bars and bindings have settled
         self:UnregisterEvent("PLAYER_ENTERING_WORLD")
         C_Timer.After(5, function()
-            if not reachable() then
+            ranks = ranks or buildRanks()
+            -- only nag when you know at least one buff (not Rogues, not a Hunter without
+            -- Trueshot Aura, ...) and nothing reaches the button
+            if next(ranks) and not reachable() then
                 chat(
                     "loaded, but there's no way to press it yet: bind a key "
                         .. "(Options > Keybindings > AddOns) or type /kindhands macro "
