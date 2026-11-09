@@ -64,7 +64,7 @@ local function registerSettings()
         category,
         autoLoot,
         "The game's Auto Loot setting (same as Options > Controls). "
-            .. "Holding the auto-loot modifier (Shift by default) inverts it per loot window."
+            .. "Holding the Loot Key (Options > Controls, Shift by default) inverts it per loot window."
     )
 
     Settings.RegisterAddOnCategory(category)
