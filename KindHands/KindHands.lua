@@ -250,12 +250,33 @@ end)
 BINDING_HEADER_KINDHANDS = "KindHands"
 _G["BINDING_NAME_CLICK " .. BUTTON .. ":LeftButton"] = "Buff next missing"
 
-SLASH_KINDHANDS1 = "/kindhands"
-SlashCmdList.KINDHANDS = function()
-    if InCombatLockdown() then
-        print("|cff33ff99KindHands|r: not in combat")
-        return
+local function chat(msg)
+    DEFAULT_CHAT_FRAME:AddMessage("|cff33ff99KindHands|r: " .. msg)
+end
+
+local MACRO_NAME = "KindHands"
+local MACRO_ICON = "Spell_Holy_SealOfSacrifice"
+local MACRO_BODY = "/click " .. BUTTON
+
+-- Account-wide macro (each character still casts its own class's buffs), put on
+-- the cursor to drop on a bar. Reuses an existing one, fixing its text if needed.
+local function makeMacro()
+    local index = GetMacroIndexByName(MACRO_NAME)
+    if index == 0 then
+        local account = GetNumMacros()
+        if account >= Constants.MacroConsts.MAX_ACCOUNT_MACROS then
+            chat("your account macros are full; delete one or use /click " .. BUTTON)
+            return
+        end
+        index = CreateMacro(MACRO_NAME, MACRO_ICON, MACRO_BODY, false)
+    elseif GetMacroBody(index) ~= MACRO_BODY then
+        EditMacro(index, MACRO_NAME, MACRO_ICON, MACRO_BODY)
     end
+    PickupMacro(index)
+    chat("macro on your cursor: click an action bar slot to place it")
+end
+
+local function status()
     local rank, unit = pick()
     local next_ = rank
             and unit
@@ -265,13 +286,24 @@ SlashCmdList.KINDHANDS = function()
                 UnitName(unit) or unit
             )
         or "nothing"
-    print(
-        "|cff33ff99KindHands|r: next press casts "
-            .. next_
-            .. ". Bind a key in Options > "
-            .. "Keybindings > AddOns, or make a macro: /click "
+    chat("next press casts " .. next_ .. ".")
+    chat(
+        "use it: /kindhands macro, or bind a key in Options > Keybindings > AddOns, "
+            .. "or /click "
             .. BUTTON
+            .. " in your own macro"
     )
+end
+
+SLASH_KINDHANDS1 = "/kindhands"
+SlashCmdList.KINDHANDS = function(msg)
+    if InCombatLockdown() then
+        chat("not in combat")
+    elseif msg:lower():match("^%s*macro%s*$") then
+        makeMacro()
+    else
+        status()
+    end
 end
 
 local f = CreateFrame("Frame")
