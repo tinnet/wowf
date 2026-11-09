@@ -14,7 +14,9 @@ addons_dir := wow_dir / "_forever_/Interface/AddOns"
 
 # run tools from mise.toml even if mise isn't activated in the shell
 x := "mise exec --"
-lua_files := "$(git ls-files --cached --others --exclude-standard '*.lua' ':!types/*' ':!scripts/*')"
+lua_files := "$(git ls-files --cached --others --exclude-standard '*.lua' ':!types/*' ':!scripts/*' ':!tests/*')"
+test_files := "$(git ls-files --cached --others --exclude-standard 'tests/*.lua')"
+busted := ".cache/rocks/bin/busted"
 api_docs := ".cache/wow-ui-source-forever/Interface/AddOns/Blizzard_APIDocumentationGenerated"
 
 # list recipes
@@ -115,6 +117,9 @@ setup:
     echo "$src: $(git -C "$src" log -1 --format='%cs %s')"
     fetch https://github.com/Ketho/vscode-wow-api.git master .cache/vscode-wow-api
     fetch https://github.com/NumyAddon/FramexmlAnnotations.git forever .cache/framexml-forever
+    # busted (unit tests) for Lua 5.1, into the project instead of the system
+    [ -x {{busted}} ] || {{x}} luarocks --tree .cache/rocks install busted 2.2.0-1 >/dev/null
+    echo "{{busted}}: $({{x}} {{busted}} --version)"
 
 # syntax-check with Lua 5.1, check events/C_ APIs against Forever's docs, type-check with LuaLS
 check: _ensure-setup
@@ -127,15 +132,19 @@ check: _ensure-setup
     echo "$out"
     grep -q "no problems found" <<<"$out"
 
+# run the busted unit tests in tests/ (pure logic only, no faked game API)
+test: _ensure-setup
+    {{x}} {{busted}}
+
 # run setup only if the cache is missing (just has no "is this up to date" check of its own)
 [private]
 _ensure-setup:
-    @[ -d "{{api_docs}}" ] || {{just_executable()}} setup
+    @[ -d "{{api_docs}}" ] && [ -x {{busted}} ] || {{just_executable()}} setup
 
 # format all addon Lua with stylua
 fmt:
-    {{x}} stylua {{lua_files}}
+    {{x}} stylua {{lua_files}} {{test_files}}
 
 # fail if anything isn't formatted
 fmt-check:
-    {{x}} stylua --check {{lua_files}}
+    {{x}} stylua --check {{lua_files}} {{test_files}}

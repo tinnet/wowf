@@ -5,4 +5,5 @@
 ## Version: 0.1.0
 ## SavedVariables: KindHandsDB
 
+Logic.lua
 KindHands.lua

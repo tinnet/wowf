@@ -39,8 +39,9 @@ your shell. If it isn't, run just itself with `mise exec -- just <recipe>`.
 | `just link` | Puts each addon into `…/_forever_/Interface/AddOns`. An addon is any folder `Name/` that contains `Name/Name.toc`. On Linux and macOS it creates symlinks, so edits show up after a `/reload`. On Windows it makes full copies instead, because symlinks there need Developer Mode. Each copy is replaced fresh on every run, so files you delete in the repo disappear too, and it's marked with a `.wowf-copy` file. Rerun it after every change. A folder with the same name that this repo didn't create is skipped, never overwritten. Set `LINK_MODE=copy` or `LINK_MODE=symlink` to override the mode. |
 | `just unlink` | Removes what `link` created: symlinks into this repo and marked copies. Other addons aren't touched. |
 | `just status` | Shows the AddOns path and mode in use, and which addons came from this repo. |
-| `just setup` | Clones or updates into `.cache/` (gitignored): Blizzard's UI source and generated API docs for the Forever client ([Gethe/wow-ui-source](https://github.com/Gethe/wow-ui-source), `forever` branch, `Interface/AddOns` only, ~60 MB), plus annotations for lua-language-server: [Ketho/vscode-wow-api](https://github.com/Ketho/vscode-wow-api) for the game API, events, and widgets, and the `forever` branch of [NumyAddon/FramexmlAnnotations](https://github.com/NumyAddon/FramexmlAnnotations) for Blizzard's UI code. Both are MIT licensed. Also installs the lefthook git hooks. Rerun it after a game patch. |
+| `just setup` | Clones or updates into `.cache/` (gitignored): Blizzard's UI source and generated API docs for the Forever client ([Gethe/wow-ui-source](https://github.com/Gethe/wow-ui-source), `forever` branch, `Interface/AddOns` only, ~60 MB), plus annotations for lua-language-server: [Ketho/vscode-wow-api](https://github.com/Ketho/vscode-wow-api) for the game API, events, and widgets, and the `forever` branch of [NumyAddon/FramexmlAnnotations](https://github.com/NumyAddon/FramexmlAnnotations) for Blizzard's UI code. Both are MIT licensed. Installs [busted](https://lunarmodules.github.io/busted/) 2.2.0 into `.cache/rocks` with LuaRocks. Also installs the lefthook git hooks. Rerun it after a game patch. |
 | `just check` | Syntax-checks every addon `.lua` with the real Lua 5.1 `luac` (the game's Lua version, which rejects 5.2+ syntax such as `goto` and `//`). Then checks every registered event and `C_*` function against Forever's own API docs (`scripts/check-api.lua`). Then runs `lua-language-server --check` for undefined globals, typos, and wrong argument types. Runs `setup` first if the annotations are missing. Exits non-zero if it finds problems. |
+| `just test` | Runs the busted unit tests in `tests/` (`*_spec.lua`). They cover plain logic that doesn't call the game, such as KindHands' buff choice in `KindHands/Logic.lua`; nothing in the game API is faked. |
 | `just fmt` | Formats addon Lua with StyLua (`.stylua.toml`: 4 spaces, 100 columns). |
 | `just fmt-check` | Fails if anything isn't formatted. Changes nothing. |
 
@@ -50,6 +51,7 @@ your shell. If it isn't, run just itself with `mise exec -- just <recipe>`.
 
 1. **fmt**: StyLua formats the staged files, and the changes are re-staged into the commit. This never fails the commit.
 2. **check**: runs `just check`. The commit is blocked if it reports problems.
+3. **test**: runs `just test`. The commit is blocked if a test fails.
 
 Skip the hooks once with `LEFTHOOK=0 git commit …`.
 

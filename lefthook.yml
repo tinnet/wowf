@@ -11,3 +11,6 @@ pre-commit:
     - name: check
       glob: "*.lua"
       run: mise exec -- just check
+    - name: test
+      glob: "*.lua"
+      run: mise exec -- just test

@@ -6,7 +6,10 @@ Personal WoW addons for one player, not for public release.
   compatibility shims or multi-version `.toc` lines.
 - If supporting every class would be a lot of extra work, focus on the classes I play:
   druid, warrior, rogue, paladin. Others can be best-effort or skipped.
-- See README.md for tooling; run `just check` and `just fmt` before committing.
+- See README.md for tooling; run `just check`, `just test` and `just fmt` before committing.
+- Unit tests (`tests/`, busted) only cover plain logic split into its own file that takes
+  data and calls no game API (e.g. `KindHands/Logic.lua`). Don't fake the game API to test
+  more: fakes encode our guesses about the client, the same trap as stubbing in `types/`.
 
 ## Forever API: where the truth is
 

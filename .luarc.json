@@ -12,6 +12,6 @@
     ".cache/framexml-forever/Annotations",
     "types"
   ],
-  "workspace.ignoreDir": [".cache", "scripts"],
+  "workspace.ignoreDir": [".cache", "scripts", "tests"],
   "workspace.checkThirdParty": false
 }
