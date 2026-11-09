@@ -306,15 +306,48 @@ SlashCmdList.KINDHANDS = function(msg)
     end
 end
 
+-- Whether the button can be used at all: a key bound to it, or any macro on your
+-- bars that clicks it (ours or your own). Action slots 1-180 cover every bar page.
+local function reachable()
+    if GetBindingKey("CLICK " .. BUTTON .. ":LeftButton") then
+        return true
+    end
+    for slot = 1, 180 do
+        local kind, id = GetActionInfo(slot)
+        if kind == "macro" and id then
+            local body = GetMacroBody(id)
+            if body and body:find(BUTTON, 1, true) then
+                return true
+            end
+        end
+    end
+    return false
+end
+
 local f = CreateFrame("Frame")
 f:RegisterEvent("ADDON_LOADED")
 f:SetScript("OnEvent", function(self, event, arg)
     if event == "SPELLS_CHANGED" then
         ranks = nil -- rebuilt on the next press
+    elseif event == "PLAYER_ENTERING_WORLD" then
+        -- once per login, after the bars and bindings have settled
+        self:UnregisterEvent("PLAYER_ENTERING_WORLD")
+        C_Timer.After(5, function()
+            if not reachable() then
+                chat(
+                    "loaded, but there's no way to press it yet: bind a key "
+                        .. "(Options > Keybindings > AddOns) or type /kindhands macro "
+                        .. "and put the macro on a bar."
+                )
+            end
+        end)
     elseif arg == ADDON then
         self:UnregisterEvent("ADDON_LOADED")
         local _, class = UnitClass("player")
         playerClass = class
         self:RegisterEvent("SPELLS_CHANGED")
+        if BUFFS[class] then -- no reminder for classes without buffs (Rogues)
+            self:RegisterEvent("PLAYER_ENTERING_WORLD")
+        end
     end
 end)
