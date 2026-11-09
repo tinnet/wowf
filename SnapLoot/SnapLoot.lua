@@ -6,19 +6,21 @@
 -- then stays open as usual).
 -- Options > AddOns > SnapLoot: on/off, plus the game's own Auto Loot setting.
 
-local THROTTLE = 0.3 -- LOOT_READY can fire twice for the same loot window
-local last = 0
+local ADDON = ...
 local db
+-- LOOT_READY can fire twice for the same loot window; act once per window
+-- (reset on LOOT_CLOSED; the timeout only guards against a missed close).
+local handledAt
 
 local function onLootReady(autoloot)
     if not (db.enabled and autoloot) then
         return
     end
     local now = GetTime()
-    if now - last < THROTTLE then
+    if handledAt and now - handledAt < 2 then
         return
     end
-    last = now
+    handledAt = now
     for slot = GetNumLootItems(), 1, -1 do
         local locked = select(6, GetLootSlotInfo(slot))
         if not locked then
@@ -52,7 +54,9 @@ local function registerSettings()
         "SNAPLOOT_AUTO_LOOT_CVAR",
         Settings.VarType.Boolean,
         "Auto Loot (game setting)",
-        false,
+        function()
+            return C_CVar.GetCVarDefault("autoLootDefault") == "1"
+        end,
         function()
             return C_CVar.GetCVarBool("autoLootDefault")
         end,
@@ -64,7 +68,8 @@ local function registerSettings()
         category,
         autoLoot,
         "The game's Auto Loot setting (same as Options > Controls). "
-            .. "Holding the Loot Key (Options > Controls, Shift by default) inverts it per loot window."
+            .. "Holding the Loot Key (Options > Controls, Shift by default; called Auto Loot Key "
+            .. "while this is off) inverts it per loot window."
     )
 
     Settings.RegisterAddOnCategory(category)
@@ -75,11 +80,14 @@ f:RegisterEvent("ADDON_LOADED")
 f:SetScript("OnEvent", function(self, event, arg)
     if event == "LOOT_READY" then
         onLootReady(arg)
-    elseif arg == "SnapLoot" then
+    elseif event == "LOOT_CLOSED" then
+        handledAt = nil
+    elseif arg == ADDON then
         self:UnregisterEvent("ADDON_LOADED")
         SnapLootDB = SnapLootDB or {}
         db = SnapLootDB
         registerSettings() -- fills db.enabled with the default if unset
         self:RegisterEvent("LOOT_READY")
+        self:RegisterEvent("LOOT_CLOSED")
     end
 end)
