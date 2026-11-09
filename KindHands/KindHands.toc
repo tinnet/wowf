@@ -1,0 +1,7 @@
+## Interface: 16001
+## Title: KindHands
+## Notes: One button that buffs your target, you, and your party with whatever they're missing from you.
+## Author: Martin Contento
+## Version: 0.1.0
+
+KindHands.lua
