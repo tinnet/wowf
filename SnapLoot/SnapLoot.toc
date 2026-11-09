@@ -3,5 +3,6 @@
 ## Notes: When auto loot is on, takes every item at once instead of one by one.
 ## Author: Martin Contento
 ## Version: 0.1.0
+## SavedVariables: SnapLootDB
 
 SnapLoot.lua

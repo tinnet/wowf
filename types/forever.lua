@@ -18,3 +18,7 @@ DEFAULT_CHAT_FRAME = {}
 --- Blizzard_FrameXMLBase/Constants.lua
 ---@type integer
 INVSLOT_MAINHAND = 16
+
+--- Blizzard_Settings_Shared/Blizzard_Settings.lua (the Options panel API)
+---@type table
+Settings = {}
