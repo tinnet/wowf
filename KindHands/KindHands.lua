@@ -302,7 +302,7 @@ f:SetScript("OnEvent", function(self, event, arg)
         local _, class = UnitClass("player")
         playerClass = class
         self:RegisterEvent("SPELLS_CHANGED")
-        if BUFFS[class] then -- no reminder for classes without buffs (Rogues)
+        if BUFFS[class] then -- no reminder for classes without buffs (Rogues, Warriors)
             self:RegisterEvent("PLAYER_ENTERING_WORLD")
         end
     end

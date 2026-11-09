@@ -44,7 +44,8 @@ Logic.BUFFS = {
         { id = 687, who = "self", also = { 706 } }, -- Demon Skin
     },
     SHAMAN = { { id = 324, who = "self" } }, -- Lightning Shield
-    WARRIOR = { { id = 6673, who = "self" } }, -- Battle Shout
+    -- No Warrior entry: Battle Shout is a 2 minute combat shout, not a buff you hand
+    -- out between fights. Rogues have nothing either.
     HUNTER = { { id = 19506, who = "self" } }, -- Trueshot Aura
 }
 

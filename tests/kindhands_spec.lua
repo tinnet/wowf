@@ -157,8 +157,9 @@ describe("other classes", function()
         assert.is_nil(first("PRIEST", target, known, false))
     end)
 
-    it("Rogues have nothing to give", function()
+    it("Rogues and Warriors have nothing to give (Battle Shout is a combat shout)", function()
         assert.is_nil(first("ROGUE", unit("WARRIOR"), {}))
+        assert.is_nil(first("WARRIOR", unit("WARRIOR", { isMe = true }), knows(6673)))
     end)
 
     it("an unknown class still gets buffs for anyone", function()
