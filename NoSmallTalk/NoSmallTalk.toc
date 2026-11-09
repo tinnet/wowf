@@ -1,0 +1,8 @@
+## Interface: 16001
+## Title: NoSmallTalk
+## Notes: Skips the chat window when an NPC has just one thing to offer (vendor, trainer, flights, bank). Hold Shift to read it.
+## Author: Martin Contento
+## Version: 0.1.0
+## IconTexture: Interface\Icons\Spell_Holy_Silence
+
+NoSmallTalk.lua
