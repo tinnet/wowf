@@ -47,30 +47,31 @@ local function registerSettings()
         "Take all loot at once whenever the game auto loots."
     )
 
-    -- Mirrors the game's own CVar (also under Options > Controls), since
-    -- SnapLoot only acts when auto loot applies.
+    -- Read-only mirror of the game's Auto Loot CVar, since SnapLoot only acts
+    -- when auto loot applies. Never write it from here: Forever's action bar
+    -- (Blizzard_GamepadActionBars) caches autoLootDefault via a CVar callback,
+    -- so an addon-side SetCVar taints that bar and blocks its interact key.
     local autoLoot = Settings.RegisterProxySetting(
         category,
         "SNAPLOOT_AUTO_LOOT_CVAR",
         Settings.VarType.Boolean,
         "Auto Loot (game setting)",
-        function()
-            return C_CVar.GetCVarDefault("autoLootDefault") == "1"
-        end,
+        false,
         function()
             return C_CVar.GetCVarBool("autoLootDefault")
         end,
-        function(value)
-            C_CVar.SetCVar("autoLootDefault", value and "1" or "0")
-        end
+        function() end
     )
-    Settings.CreateCheckbox(
+    local initializer = Settings.CreateCheckbox(
         category,
         autoLoot,
-        "The game's Auto Loot setting (same as Options > Controls). "
-            .. "Holding the Loot Key (Options > Controls, Shift by default; called Auto Loot Key "
-            .. "while this is off) inverts it per loot window."
+        "Shows the game's Auto Loot setting; change it in Options > Controls. "
+            .. "Holding the Loot Key (Shift by default; called Auto Loot Key while Auto Loot "
+            .. "is off) inverts it per loot window."
     )
+    initializer:AddModifyPredicate(function()
+        return false
+    end)
 
     Settings.RegisterAddOnCategory(category)
 end

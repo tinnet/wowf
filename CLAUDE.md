@@ -34,5 +34,10 @@ and aborts the rest of the file. Don't write from Classic memory; look it up:
    game API functions there; that hid real load errors before.
 6. `/console scriptErrors 1` in-game. Lua errors are not written to any log file.
    A load error usually leaves `WTF/Account/*/SavedVariables/<Addon>.lua` as `<DB> = nil`.
+7. Taint: before `C_CVar.SetCVar` on a CVar, grep the tree for `"<cvar>"`. If Blizzard UI
+   caches it via `CVarCallbackRegistry` (e.g. `autoLootDefault` in Forever's
+   `Blizzard_GamepadActionBars`), setting it from addon code taints that frame and
+   blocks protected actions ("<Addon> has been blocked from an action only available
+   to the Blizzard UI"). `/console taintLog 1` writes `Logs/taint.log` to confirm.
 
 Reading other addons on GitHub for ideas is fine; don't copy their code verbatim.
