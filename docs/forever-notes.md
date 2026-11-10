@@ -17,6 +17,9 @@ where it came from and when. How to look up the API itself is in CLAUDE.md.
 - Settings panel (`Settings.RegisterVerticalLayoutCategory`, `RegisterAddOnSetting`,
   `RegisterProxySetting`, `CreateCheckbox`) works for addons; proxy defaults can be
   functions.
+- `/reload` picks up new addon folders: a freshly linked addon loads without restarting
+  the game (seen with NoSmallTalk, 2026-11-09). Whether `.toc` edits to an existing
+  addon (e.g. a new `## IconTexture`) are re-read too isn't checked yet.
 - Secure action buttons honor the `useOnKeyDown` attribute; with it `false` and
   `RegisterForClicks("AnyUp")`, key bindings and `/click Button` both fire once.
 
