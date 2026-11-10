@@ -3,8 +3,8 @@
 -- The game already does this for some NPCs (selectOptionWhenOnlyOption); this covers
 -- the rest. Hold Shift while talking to them to get the window as usual.
 -- Left alone: quest-marked options ("(Quest)", they can start events or fights),
--- options you can't pick, ones that cost or give something, and NPCs the game says
--- must show their text (ForceGossip). Options asking for gold still ask.
+-- options you can't pick, and ones that cost or give something. Options asking for gold
+-- still ask. ForceGossip is ignored: Forever sets it on plain vendors with greeting text.
 -- /nosmalltalk says why the last window wasn't skipped.
 
 local QUESTY = Enum.GossipOptionRecFlags.QuestLabelPrepend
@@ -32,9 +32,7 @@ local function onlyOption()
         #option.rewards,
         tostring(option.selectOptionWhenOnlyOption)
     )
-    if C_GossipInfo.ForceGossip() then
-        return nil, "the game says this NPC's text must show (ForceGossip); " .. about
-    elseif option.selectOptionWhenOnlyOption then
+    if option.selectOptionWhenOnlyOption then
         return nil, "the game picks it itself; " .. about
     elseif option.status ~= Enum.GossipOptionStatus.Available then
         return nil, "the option isn't available; " .. about

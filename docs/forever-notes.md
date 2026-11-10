@@ -30,6 +30,9 @@ where it came from and when. How to look up the API itself is in CLAUDE.md.
 
 ## Game data
 
+- `C_GossipInfo.ForceGossip()` is true for plain vendors with greeting text (Gorbold
+  Steelhand, Auberdine: one option "I would like to buy from you.", 2026-11-09), so it
+  isn't a useful "don't auto-pick" signal.
 - Blessing of Kings is baseline: every Paladin trains it at level 20 (Classic: a
   Protection talent), and it lasts 1 hour. Source: Forever spell DB and guides, e.g.
   https://wow-forever.gg/db/spells/20217-blessing-of-kings/ (checked 2026-11-09).
