@@ -5,33 +5,45 @@
 -- Left alone: quest-marked options ("(Quest)", they can start events or fights),
 -- options you can't pick, ones that cost or give something, and NPCs the game says
 -- must show their text (ForceGossip). Options asking for gold still ask.
+-- /nosmalltalk says why the last window wasn't skipped.
 
 local QUESTY = Enum.GossipOptionRecFlags.QuestLabelPrepend
     + Enum.GossipOptionRecFlags.PlayMovieLabelPrepend
 
 local lastPicked -- option picked in this conversation, so a page that leads back to itself stops
+local lastReason = "no NPC window seen yet"
 
+-- The option to pick, or nil and why not.
 local function onlyOption()
-    if C_GossipInfo.GetNumAvailableQuests() > 0 or C_GossipInfo.GetNumActiveQuests() > 0 then
-        return nil
-    end
-    if C_GossipInfo.ForceGossip() then
-        return nil
+    local available = C_GossipInfo.GetNumAvailableQuests()
+    local active = C_GossipInfo.GetNumActiveQuests()
+    if available > 0 or active > 0 then
+        return nil, ("it has quests (%d to take, %d in progress)"):format(available, active)
     end
     local options = C_GossipInfo.GetOptions()
     if #options ~= 1 then
-        return nil
+        return nil, ("it has %d options"):format(#options)
     end
     local option = options[1]
-    if
-        option.selectOptionWhenOnlyOption -- the game picks it itself
-        or option.status ~= Enum.GossipOptionStatus.Available
-        or bit.band(option.flags, QUESTY) ~= 0
-        or #option.rewards > 0
-    then
-        return nil
+    local about = ('"%s": status %s, flags %s, %d rewards, game picks it itself: %s'):format(
+        option.name,
+        tostring(option.status),
+        tostring(option.flags),
+        #option.rewards,
+        tostring(option.selectOptionWhenOnlyOption)
+    )
+    if C_GossipInfo.ForceGossip() then
+        return nil, "the game says this NPC's text must show (ForceGossip); " .. about
+    elseif option.selectOptionWhenOnlyOption then
+        return nil, "the game picks it itself; " .. about
+    elseif option.status ~= Enum.GossipOptionStatus.Available then
+        return nil, "the option isn't available; " .. about
+    elseif bit.band(option.flags, QUESTY) ~= 0 then
+        return nil, "the option is quest-marked; " .. about
+    elseif #option.rewards > 0 then
+        return nil, "the option has rewards; " .. about
     end
-    return option
+    return option, "picked " .. about
 end
 
 local f = CreateFrame("Frame")
@@ -43,14 +55,17 @@ f:SetScript("OnEvent", function(_, event)
         return
     end
     if IsShiftKeyDown() then
+        lastReason = "Shift was held"
         return
     end
-    local option = onlyOption()
+    local option, reason = onlyOption()
+    lastReason = reason
     if not option then
         return
     end
     local key = option.gossipOptionID or option.name
     if key == lastPicked then
+        lastReason = "it led back to the option just picked; " .. reason
         return
     end
     lastPicked = key
@@ -60,3 +75,8 @@ f:SetScript("OnEvent", function(_, event)
         C_GossipInfo.SelectOptionByIndex(option.orderIndex)
     end
 end)
+
+SLASH_NOSMALLTALK1 = "/nosmalltalk"
+SlashCmdList.NOSMALLTALK = function()
+    DEFAULT_CHAT_FRAME:AddMessage("|cff33ff99NoSmallTalk|r last NPC window: " .. lastReason)
+end
