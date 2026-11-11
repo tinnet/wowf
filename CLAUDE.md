@@ -2,8 +2,10 @@
 
 Personal WoW addons for one player, not for public release.
 
-- Target only WoW Forever (1.60.x, `## Interface: 16001`). Don't add retail/Classic
-  compatibility shims or multi-version `.toc` lines.
+- Target only WoW Forever (1.60.x, `## Interface: 16001`). Don't make addons load in other
+  games (retail, Classic Era, ...): no compatibility shims, no other games' interface numbers
+  in `## Interface:`, no per-game `.toc` files. Bumping the Forever number after a Forever
+  patch (e.g. 1.60.2 → `16002`) is expected.
 - If supporting every class would be a lot of extra work, focus on the classes I play:
   druid, warrior, rogue, paladin. Others can be best-effort or skipped.
 - See README.md for tooling; run `just check`, `just test` and `just fmt` before committing.
