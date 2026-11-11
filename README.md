@@ -10,6 +10,7 @@ Small personal addons for WoW Forever (client 1.60.x, `## Interface: 16001`).
 | [SnapLoot](SnapLoot/) | Fast loot: when auto loot applies, takes every slot at once on `LOOT_READY`. Leaves locked (roll) slots, bind-on-pickup confirmations and full bags to the normal loot window. Options > AddOns > SnapLoot has an on/off toggle and shows (read-only) the game's own Auto Loot setting. |
 | [KindHands](KindHands/) | One button for buffs, all classes: each press casts the next buff someone is missing from you, at a rank they can take, on your friendly target, then you, then your party (in range). Decided on the press, nothing runs in the background, nothing in combat. `/kindhands macro` makes an account-wide macro and puts it on your cursor; or bind it under Options > Keybindings > AddOns. `/kindhands` says what the next press casts. Options > AddOns > KindHands: "Only buffs that suit them" (turn off to hand out anything you have to passers-by) and "Also buff myself" (turn off to only ever buff others). |
 | [NoSmallTalk](NoSmallTalk/) | When an NPC's chat window has exactly one option and no quests (vendor, trainer, flight master, banker), picks it so you go straight to the shop. Leaves alone quest-marked options and ones you can't pick or that cost or give something. Options that ask for gold still ask. Hold Shift while talking to see the window. `/nosmalltalk` says why the last window wasn't skipped. No options. |
+| [RichPeopleBoatMoney](RichPeopleBoatMoney/) | Saves every full auction house dump (every single listing; Forever leaves the seller empty) to SavedVariables: from `/rpbm scan` at the auction house, or any addon that asks for one, e.g. Auctionator with "Use alternate slower scan mode by default" on (Auctionator options > Advanced; its default "summary" scan only gets one lowest price per item and isn't saved). Buyouts are per stack. Keeps the last 4 scans (a full scan is ~200k auctions, ~6 MB). They reach the disk on logout or `/reload`. `just rpbm-export` writes each scan to its own JSON Lines file, one auction per line, named by scan time, realm and faction, in the folder you run it from (or `just rpbm-export some/dir`); scans already exported are skipped, so run it after every session and nothing is lost or overwritten (`scripts/rpbm-jsonl.lua`, which prints to stdout without `-d`). `/rpbm` lists saved scans, `/rpbm clear` deletes them. |
 
 ## Setup
 
@@ -64,5 +65,5 @@ one. See [CLAUDE.md](CLAUDE.md#forever-api-where-the-truth-is) for where to look
 
 ## In-game testing
 
-`/console scriptErrors 1` shows Lua errors, and `/reload` loads code changes.
-Changes to a `.toc` file only take effect after a full client restart.
+`/console scriptErrors 1` shows Lua errors. `/reload` loads code changes, `.toc` edits
+and newly linked addons.

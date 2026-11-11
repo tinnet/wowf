@@ -19,6 +19,16 @@ where it came from and when. How to look up the API itself is in CLAUDE.md.
   functions.
 - `/reload` re-reads the addon folder: newly linked addons load and `.toc` edits apply
   (new `## IconTexture` lines showed up) without restarting the game (2026-11-09).
+- Full auction house dump (`C_AuctionHouse.ReplicateItems`): `REPLICATE_ITEM_LIST_UPDATE`
+  fires hundreds of times for one dump, always with the same `GetNumReplicateItems()`
+  (214,178 auctions on 2026-11-11, Alliance), so read once and ignore the repeats. Replicate
+  indexes start at 0, and the buyout from `GetReplicateItemInfo` is for the whole stack.
+  Auctionator's default full scan is the "summary" browse search, not this dump; its
+  "alternate slower scan mode" option switches to the dump. Sources: our own
+  RichPeopleBoatMoney, and CraftProfit's comments (`AHAdapter.lua`, measured by its author).
+  In the dump (2026-11-11): the seller (`owner`) is always empty, almost every auction is
+  buyout-only (min bid and increment 0), and items the client hasn't loaded come back
+  with quality -1 and no link (~14%), though item ID and prices are there.
 - Secure action buttons honor the `useOnKeyDown` attribute; with it `false` and
   `RegisterForClicks("AnyUp")`, key bindings and `/click Button` both fire once.
 

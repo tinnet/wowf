@@ -148,3 +148,19 @@ fmt:
 # fail if anything isn't formatted
 fmt-check:
     {{x}} stylua --check {{lua_files}} {{test_files}}
+
+# export RichPeopleBoatMoney's saved AH scans (all accounts) as JSON Lines, one file per
+# scan named by time, realm and faction, into dir (default: where just was run); scans
+# already there are skipped, never overwritten
+rpbm-export dir="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    shopt -s nullglob
+    files=("{{wow_dir}}"/_forever_/WTF/Account/*/SavedVariables/RichPeopleBoatMoney.lua)
+    [ ${#files[@]} -gt 0 ] || { echo "no RichPeopleBoatMoney.lua saved yet (log out or /reload after a scan)" >&2; exit 1; }
+    dir={{quote(dir)}}
+    # default and relative paths are meant from where just was run, not the repo root
+    if [ -z "$dir" ]; then dir={{quote(invocation_directory())}}
+    elif [[ "$dir" != /* ]]; then dir={{quote(invocation_directory())}}/"$dir"; fi
+    mkdir -p "$dir"
+    {{x}} lua scripts/rpbm-jsonl.lua -d "$dir" "${files[@]}"

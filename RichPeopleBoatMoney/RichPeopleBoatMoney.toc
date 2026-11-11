@@ -1,0 +1,9 @@
+## Interface: 16001
+## Title: RichPeopleBoatMoney
+## Notes: Saves every full auction house dump (/rpbm scan or another addon's) to disk for analysis outside the game. /rpbm
+## Author: Martin Contento
+## Version: 0.1.0
+## IconTexture: Interface\Icons\INV_Misc_Coin_02
+## SavedVariables: RichPeopleBoatMoneyDB
+
+RichPeopleBoatMoney.lua
