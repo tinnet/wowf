@@ -18,10 +18,14 @@ local ICON = "Interface\\Icons\\Spell_Holy_SealOfSacrifice"
 
 local db
 local window, whoText, spellText, unknownText, thanksButton
-local reopen = false -- closed by combat, to come back after
-local resuming = false -- reopening after combat: keep who buffed you
+local reopen = false -- closed by combat: comes back after, keeping who buffed you
 local expires = {} -- auraInstanceID -> expirationTime, to notice rebuffs (refreshes)
-local last -- { name, fullName, guid, spells = { names }, thanked } who buffed you last
+-- Who buffed you last: { name, fullName, guid, spells = { names }, thanked, seen },
+-- seen = them as KindHands.lua's readUnit read them then (for buffing back by name).
+local last
+local sent = {} -- castGUID -> spellID of your casts at `last`, until they land
+local triedAt -- GetTime() of the last press that tried to target `last` by name
+local castAt -- GetTime() of the last by-name press that should have cast
 local unknown -- spell names from casters the game didn't name, since `last`
 
 local function refresh()
@@ -84,8 +88,7 @@ local function noticed(aura)
             }
             unknown = nil
         end
-        addTo(last.spells, name)
-        last.thanked = false
+        addTo(last.spells, name) -- `thanked` stays: one thanks per person
         -- what they have and their level now, for buffing back once the game
         -- has no unit for them any more
         last.seen = ns.readUnit(source)
@@ -111,8 +114,35 @@ local function seed()
 end
 
 local events = CreateFrame("Frame")
-events:SetScript("OnEvent", function(_, event, _, info)
-    if event ~= "UNIT_AURA" or InCombatLockdown() then
+-- Your buff on them landed: count it as theirs, so the next press by name (from what
+-- they had when they buffed you) doesn't cast it again.
+local function landed(spellID)
+    local id = last and last.seen and ns.watchedID(spellID)
+    if id then
+        last.seen.has[id] = true
+        last.seen.mine[id] = true
+    end
+end
+
+local function onCast(event, a, b, c)
+    if event == "UNIT_SPELLCAST_SENT" then
+        local target, castGUID, spellID = plain(a), plain(b), plain(c)
+        if last and castGUID and target and (target == last.name or target == last.fullName) then
+            sent[castGUID] = spellID
+            castAt = nil -- the by-name cast did go out
+        end
+    else -- UNIT_SPELLCAST_SUCCEEDED: castGUID, spellID
+        local castGUID = plain(a)
+        if castGUID and sent[castGUID] then
+            landed(sent[castGUID])
+            sent[castGUID] = nil
+        end
+    end
+end
+
+events:SetScript("OnEvent", function(_, event, _, info, ...)
+    if event ~= "UNIT_AURA" then
+        onCast(event, info, ...)
         return
     end
     if info.isFullUpdate then
@@ -156,16 +186,18 @@ local function castName(id)
     return name
 end
 
--- No unit for them right now (not targeted, not in your group, no nameplate): one
--- press targets them by name, casts, and hands your target back. The buff is chosen
--- from what they had when they buffed you. If the name can't be targeted (gone),
--- your old target stays, so the cast must not land on it: with a friendly target
--- this falls back to two presses (target them first), otherwise [help] stops it.
+-- No unit for them right now (not targeted, not in your group, no nameplate).
+-- With no target of your own, one press targets them by name, casts what they lacked
+-- when they buffed you, and clears the target again. With a target, a failed
+-- /targetexact would leave yours in place, the cast aimed at it and /targetlasttarget
+-- jumping to an older one; so then the press only targets them, and the next press
+-- finds them as your target and buffs as usual.
 local function armByName(button)
-    if UnitExists("target") and UnitCanAssist("player", "target") then
+    local now = GetTime()
+    if UnitExists("target") then
         button:SetAttribute("type", "macro")
         button:SetAttribute("macrotext", "/targetexact " .. last.fullName)
-        ns.say(("targeting %s: press again to buff"):format(last.name))
+        triedAt = now
         return
     end
     local rank = last.seen and ns.pickForData(last.seen)
@@ -177,12 +209,35 @@ local function armByName(button)
     button:SetAttribute("type", "macro")
     button:SetAttribute(
         "macrotext",
-        ("/targetexact %s\n/cast [@target,help,nodead] %s\n%s"):format(
+        ("/targetexact %s\n/cast [@target,help,nodead] %s\n/cleartarget"):format(
             last.fullName,
-            spell,
-            UnitExists("target") and "/targetlasttarget" or "/cleartarget"
+            spell
         )
     )
+    castAt = now
+end
+
+-- After a by-name press: whether it reached them. A by-name cast that went out shows
+-- as UNIT_SPELLCAST_SENT (clearing castAt); a moment without one means they weren't
+-- there to target. The game says itself why a cast that did go out failed.
+local function afterByName()
+    if triedAt then
+        triedAt = nil
+        if last and plain(UnitTokenFromGUID(last.guid)) then
+            ns.say(("targeted %s: press again to buff"):format(last.name))
+        elseif last then
+            ns.say(("couldn't target %s: not nearby?"):format(last.name))
+        end
+    end
+    if castAt then
+        local at = castAt
+        C_Timer.After(0.5, function()
+            if castAt == at and last then
+                castAt = nil
+                ns.say(("couldn't target %s: not nearby?"):format(last.name))
+            end
+        end)
+    end
 end
 
 local function createBuffBack()
@@ -197,8 +252,13 @@ local function createBuffBack()
     b:RegisterForClicks("AnyUp")
     b:SetAttribute("useOnKeyDown", false)
     b:SetScript("PreClick", function(self)
+        -- first: changing a secure button's attributes in combat is blocked
+        if InCombatLockdown() then
+            return
+        end
         self:SetAttribute("type", nil)
-        if InCombatLockdown() or not last then
+        triedAt, castAt = nil, nil
+        if not last then
             return
         end
         local unit = plain(UnitTokenFromGUID(last.guid))
@@ -222,6 +282,7 @@ local function createBuffBack()
     b:SetScript("PostClick", function(self)
         if not InCombatLockdown() then
             self:SetAttribute("type", nil)
+            afterByName()
         end
     end)
     return b
@@ -304,16 +365,21 @@ local function createWindow()
     thanksButton:SetPoint("BOTTOMRIGHT", -12, 10)
 
     window:SetScript("OnShow", function()
-        if not resuming then
+        if not reopen then
             last, unknown = nil, nil -- only buffs from while it's open
+            wipe(sent)
         end
-        resuming = false
+        reopen = false
         seed()
         events:RegisterUnitEvent("UNIT_AURA", "player")
+        events:RegisterUnitEvent("UNIT_SPELLCAST_SENT", "player")
+        events:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
         refresh()
     end)
     window:SetScript("OnHide", function()
         events:UnregisterEvent("UNIT_AURA")
+        events:UnregisterEvent("UNIT_SPELLCAST_SENT")
+        events:UnregisterEvent("UNIT_SPELLCAST_SUCCEEDED")
     end)
 end
 
@@ -441,8 +507,7 @@ f:SetScript("OnEvent", function(self, event, arg)
         end
     elseif event == "PLAYER_REGEN_ENABLED" then
         if reopen then
-            reopen, resuming = false, true
-            window:Show()
+            window:Show() -- OnShow sees reopen and keeps who buffed you
         end
     elseif event == "PLAYER_LOGIN" then
         if not db.minimapAngle then

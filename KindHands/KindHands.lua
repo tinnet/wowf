@@ -168,10 +168,22 @@ local function pick()
     return nil, nil, far
 end
 
+-- Whether you know any buff the button could cast, given the "Also buff myself" option.
+local function canGiveAnything()
+    for _, entry in ipairs(BUFFS[playerClass] or {}) do
+        if ranks[entry.id] and (db.buffSelf or entry.who ~= "self") then
+            return true
+        end
+    end
+    return false
+end
+
 -- Why a press casts nothing.
 local function nothingToCast(far)
     if not BUFFS[playerClass] then
         return "no buffs for your class"
+    elseif not canGiveAnything() then
+        return "you don't know any buff to give yet"
     elseif #far > 0 then
         return "out of range: " .. table.concat(far, ", ")
     end
@@ -198,6 +210,11 @@ end
 function ns.pickForData(data)
     prepare()
     return Logic.candidates(playerClass, data, ranks, db.onlySuitable)[1]
+end
+-- For Window.lua: the rank 1 ID KindHands watches for under this spell's name, or nil.
+function ns.watchedID(spellID)
+    prepare()
+    return watchedNames[C_Spell.GetSpellName(spellID) or ""]
 end
 ns.say, ns.plain = say, plain
 
@@ -302,16 +319,6 @@ local function reachable()
             if body and body:find(BUTTON, 1, true) then
                 return true
             end
-        end
-    end
-    return false
-end
-
--- Whether you know any buff the button could cast, given the "Also buff myself" option.
-local function canGiveAnything()
-    for _, entry in ipairs(BUFFS[playerClass] or {}) do
-        if ranks[entry.id] and (db.buffSelf or entry.who ~= "self") then
-            return true
         end
     end
     return false
