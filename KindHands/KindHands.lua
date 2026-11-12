@@ -188,6 +188,17 @@ function ns.pickFor(unit)
     local rank, far = pickFor(unit, false)
     return rank, far, true
 end
+-- For Window.lua: a unit as Logic sees it, kept for when there's no unit for them later.
+function ns.readUnit(unit)
+    prepare()
+    return readUnit(unit, false)
+end
+
+-- For Window.lua: the best rank for a unit read earlier, without a range check.
+function ns.pickForData(data)
+    prepare()
+    return Logic.candidates(playerClass, data, ranks, db.onlySuitable)[1]
+end
 ns.say, ns.plain = say, plain
 
 local button = CreateFrame("Button", BUTTON, UIParent, "SecureActionButtonTemplate")

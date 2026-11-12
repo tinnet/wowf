@@ -4,6 +4,9 @@
 -- Out of combat only: it closes when combat starts and comes back after. The buff back
 -- button casts, so it's a secure button, which makes the window locked in combat anyway.
 --
+-- Buff back casts on their unit when the game has one, else targets them by name for
+-- a moment (a macro) and hands your target back, like Manners does.
+--
 -- Who buffed you comes from the aura's sourceUnit: the game only names a caster that
 -- has a unit token right then (target, party, mouseover, a nameplate). A stranger you
 -- neither target nor see a nameplate for comes back as nobody; then the window can
@@ -83,6 +86,9 @@ local function noticed(aura)
         end
         addTo(last.spells, name)
         last.thanked = false
+        -- what they have and their level now, for buffing back once the game
+        -- has no unit for them any more
+        last.seen = ns.readUnit(source)
     else
         return -- your own, or from an NPC
     end
@@ -139,6 +145,46 @@ end)
 ---------------------------------------------------------------------------
 -- Buttons
 ---------------------------------------------------------------------------
+-- "Arcane Intellect(Rank 2)", as /cast wants a rank; the plain name for spells
+-- without ranks.
+local function castName(id)
+    local name = C_Spell.GetSpellName(id)
+    local rank = plain(C_Spell.GetSpellSubtext(id))
+    if name and rank and rank ~= "" then
+        return name .. "(" .. rank .. ")"
+    end
+    return name
+end
+
+-- No unit for them right now (not targeted, not in your group, no nameplate): one
+-- press targets them by name, casts, and hands your target back. The buff is chosen
+-- from what they had when they buffed you. If the name can't be targeted (gone),
+-- your old target stays, so the cast must not land on it: with a friendly target
+-- this falls back to two presses (target them first), otherwise [help] stops it.
+local function armByName(button)
+    if UnitExists("target") and UnitCanAssist("player", "target") then
+        button:SetAttribute("type", "macro")
+        button:SetAttribute("macrotext", "/targetexact " .. last.fullName)
+        ns.say(("targeting %s: press again to buff"):format(last.name))
+        return
+    end
+    local rank = last.seen and ns.pickForData(last.seen)
+    local spell = rank and castName(rank.id)
+    if not spell then
+        ns.say(last.name .. " already had your buffs when they buffed you")
+        return
+    end
+    button:SetAttribute("type", "macro")
+    button:SetAttribute(
+        "macrotext",
+        ("/targetexact %s\n/cast [@target,help,nodead] %s\n%s"):format(
+            last.fullName,
+            spell,
+            UnitExists("target") and "/targetlasttarget" or "/cleartarget"
+        )
+    )
+end
+
 local function createBuffBack()
     local b = CreateFrame(
         "Button",
@@ -155,13 +201,9 @@ local function createBuffBack()
         if InCombatLockdown() or not last then
             return
         end
-        -- a token now (target, party, nameplate) or, failing that, target them by name
-        -- so the next press finds them as your target
         local unit = plain(UnitTokenFromGUID(last.guid))
         if not unit then
-            self:SetAttribute("type", "macro")
-            self:SetAttribute("macrotext", "/targetexact " .. last.fullName)
-            ns.say(("targeting %s: press again to buff"):format(last.name))
+            armByName(self)
             return
         end
         local rank, far, buffable = ns.pickFor(unit)
