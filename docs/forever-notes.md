@@ -29,6 +29,11 @@ where it came from and when. How to look up the API itself is in CLAUDE.md.
   In the dump (2026-11-11): the seller (`owner`) is always empty, almost every auction is
   buyout-only (min bid and increment 0), and items the client hasn't loaded come back
   with quality -1 and no link (~14%), though item ID and prices are there.
+- The combat log is closed to addons the way it is on retail Midnight:
+  `COMBAT_LOG_EVENT_UNFILTERED` is marked `HasRestrictions` and `GetCurrentEventInfo` only
+  exists in the secure/internal combat log docs. So "who buffed me" comes from `UNIT_AURA`,
+  whose `AuraData` has `sourceUnit` (a unit token, nil when the caster has none) but no
+  source GUID or name (API docs, 2026-11-11; KindHands' window).
 - Secure action buttons honor the `useOnKeyDown` attribute; with it `false` and
   `RegisterForClicks("AnyUp")`, key bindings and `/click Button` both fire once.
 

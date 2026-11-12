@@ -104,49 +104,91 @@ local function readUnit(unit, isMe)
     return data
 end
 
--- The rank to cast on the unit, or nil when it has everything it can get from you.
+-- Whether the unit is close enough for the spell. Units out of sight (UnitIsVisible
+-- false) are far away; for those the range check may not answer at all.
+local function inRange(id, unit)
+    return UnitIsVisible(unit) and plain(C_Spell.IsSpellInRange(id, unit)) ~= false
+end
+
+-- The rank to cast on the unit, or nil. Second return: true when it lacks something
+-- of yours but is out of range for all of it.
 local function pickFor(unit, isMe)
     local options = Logic.candidates(playerClass, readUnit(unit, isMe), ranks, db.onlySuitable)
     for _, rank in ipairs(options) do
-        if isMe or plain(C_Spell.IsSpellInRange(rank.id, unit)) ~= false then
+        if isMe or inRange(rank.id, unit) then
             return rank
         end
     end
-    return nil
+    return nil, #options > 0
 end
 
+-- Alive, online, friendly. Range is pickFor's business, so it can say who's too far.
 local function canBuff(unit)
     return UnitExists(unit)
         and UnitIsConnected(unit)
-        and UnitIsVisible(unit)
         and not UnitIsDeadOrGhost(unit)
         and UnitCanAssist("player", unit)
 end
 
--- Friendly target, then you, then your party. Returns rank, unit.
-local function pick()
+local function prepare()
     ranks = ranks or buildRanks()
     watchedNames = watchedNames or buildWatchedNames()
+end
+
+-- Friendly target, then you, then your party. Returns rank, unit; or nil and the
+-- names of those who lack something of yours but are out of range.
+local function pick()
+    prepare()
+    local far = {}
+    local function try(unit, isMe)
+        local rank, tooFar = pickFor(unit, isMe)
+        if tooFar then
+            far[#far + 1] = UnitName(unit) or unit
+        end
+        return rank
+    end
     if canBuff("target") and not UnitIsUnit("target", "player") then
-        local rank = pickFor("target", false)
+        local rank = try("target", false)
         if rank then
             return rank, "target"
         end
     end
-    local rank = db.buffSelf and pickFor("player", true)
+    local rank = db.buffSelf and try("player", true)
     if rank then
         return rank, "player"
     end
     for _, unit in ipairs(PARTY) do
-        if canBuff(unit) then
-            rank = pickFor(unit, false)
+        if canBuff(unit) and not UnitIsUnit(unit, "target") then
+            rank = try(unit, false)
             if rank then
                 return rank, unit
             end
         end
     end
-    return nil
+    return nil, nil, far
 end
+
+-- Why a press casts nothing.
+local function nothingToCast(far)
+    if not BUFFS[playerClass] then
+        return "no buffs for your class"
+    elseif #far > 0 then
+        return "out of range: " .. table.concat(far, ", ")
+    end
+    return "everyone in reach has your buffs"
+end
+
+-- For Window.lua (buff back): the rank to cast on one unit, or nil and why not:
+-- out of range (true/false), and whether it can take buffs at all.
+function ns.pickFor(unit)
+    prepare()
+    if not canBuff(unit) then
+        return nil, false, false
+    end
+    local rank, far = pickFor(unit, false)
+    return rank, far, true
+end
+ns.say, ns.plain = say, plain
 
 local button = CreateFrame("Button", BUTTON, UIParent, "SecureActionButtonTemplate")
 button:RegisterForClicks("AnyUp")
@@ -157,14 +199,14 @@ button:SetScript("PreClick", function(self)
         say("can't pick buffs in combat")
         return
     end
-    local rank, unit = pick()
+    local rank, unit, far = pick()
     if rank then
         self:SetAttribute("type", "spell")
         self:SetAttribute("spell", rank.id)
         self:SetAttribute("unit", unit)
     else
         self:SetAttribute("type", nil)
-        say(BUFFS[playerClass] and "everyone has your buffs" or "no buffs for your class")
+        say(nothingToCast(far))
     end
 end)
 
@@ -205,7 +247,7 @@ local function makeMacro()
 end
 
 local function status()
-    local rank, unit = pick()
+    local rank, unit, far = pick()
     local next_ = rank
             and unit
             and ("%s (%s) on %s"):format(
@@ -213,7 +255,7 @@ local function status()
                 C_Spell.GetSpellSubtext(rank.id) or "",
                 UnitName(unit) or unit
             )
-        or "nothing"
+        or ("nothing (" .. nothingToCast(far) .. ")")
     chat("next press casts " .. next_ .. ".")
     chat(
         "use it: /kindhands macro, or bind a key in Options > Keybindings > AddOns, "
@@ -229,6 +271,8 @@ SlashCmdList.KINDHANDS = function(msg)
         chat("not in combat")
     elseif msg:lower():match("^%s*macro%s*$") then
         makeMacro()
+    elseif msg:lower():match("^%s*window%s*$") then
+        ns.toggleWindow()
     else
         status()
     end

@@ -5,6 +5,8 @@
 ## Version: 0.1.0
 ## IconTexture: Interface\Icons\Spell_Holy_SealOfSacrifice
 ## SavedVariables: KindHandsDB
+## AddonCompartmentFunc: KindHands_ToggleWindow
 
 Logic.lua
 KindHands.lua
+Window.lua
