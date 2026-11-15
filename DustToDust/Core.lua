@@ -12,7 +12,6 @@ local DEFAULTS = {
     minProfit = 1, -- silver
     minMargin = 10, -- percent of the buyout
     maxLoss = 50, -- percent
-    panelShown = true,
     onlyDeals = false,
     onlySkill = false,
     brackets = {}, -- band max -> true
@@ -170,6 +169,7 @@ f:SetScript("OnEvent", function(self, _, name)
             DustToDustDB[k] = type(v) == "table" and {} or v
         end
     end
+    DustToDustDB.panelShown = nil -- from version 1; the panel now always starts closed
     ns.db = DustToDustDB
     if ns.registerSettings then
         ns.registerSettings()

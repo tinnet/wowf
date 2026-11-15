@@ -228,7 +228,10 @@ it's a loop with table lookups.
 ## The panel
 
 It looks like DisenchantValue's: a ButtonFrame to the right of the auction house, a
-"Disenchant" tab under the auction house, and Blizzard's list art.
+"Dust" tab under the auction house, and Blizzard's list art. The panel starts closed
+each time the auction house opens; the tab opens it. The tab is not one of the auction
+house's own tabs (not in `AuctionHouseFrame.Tabs`), so Auctionator's tabs stay where they
+were.
 
 **Top row:**
 

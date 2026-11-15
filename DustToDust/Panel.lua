@@ -576,7 +576,6 @@ local function createPanel()
     panel:SetTitle("DustToDust")
     panel.Inset:Hide()
     panel.CloseButton:SetScript("OnClick", function()
-        ns.db.panelShown = false
         panel:Hide()
     end)
 
@@ -682,19 +681,23 @@ local function createPanel()
     panel:SetScript("OnShow", function()
         Panel.refresh()
         updateTab()
+        Prices.check() -- at most every 5 minutes
     end)
     panel:SetScript("OnHide", function()
         Scan.stop()
         updateTab()
     end)
 
-    tab = CreateFrame("Button", "DustToDustTab", AuctionHouseFrame, "PanelTabButtonTemplate")
+    -- PanelTabButtonTemplate adds the button to its parent's Tabs. On AuctionHouseFrame that
+    -- makes it the auction house's last tab, and Auctionator puts its tabs after that one.
+    local holder = CreateFrame("Frame", nil, AuctionHouseFrame)
+    holder:SetAllPoints()
+    tab = CreateFrame("Button", "DustToDustTab", holder, "PanelTabButtonTemplate")
     tab:SetText("Dust")
     PanelTemplates_TabResize(tab, 0)
     tab:SetScript("OnClick", function()
         PlaySound(SOUNDKIT.IG_CHARACTER_INFO_TAB)
-        ns.db.panelShown = not panel:IsShown()
-        panel:SetShown(ns.db.panelShown)
+        panel:SetShown(not panel:IsShown())
     end)
 end
 
@@ -729,12 +732,11 @@ function ns.onAuctionHouseShow(retried)
     onlySkill:SetShown(skill ~= nil)
     onlySkill.text:SetShown(skill ~= nil)
     paintBrackets()
-    panel:SetShown(ns.db.panelShown)
+    panel:Hide() -- starts closed every visit; the Dust tab opens it
     updateTab()
     placeTab()
     C_Timer.After(0.2, placeTab)
     Panel.refresh()
-    Prices.check()
     Panel.status()
 end
 
