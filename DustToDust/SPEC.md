@@ -10,7 +10,7 @@ differences:
 - It tells you how likely an item is to lose money, and whether you can disenchant it at
   all.
 
-Status: draft for review, nothing built yet.
+Status: version 1 built (2026-11-15), not yet tried in game.
 
 ## What's wrong with DisenchantValue (why not just patch it)
 
@@ -48,9 +48,8 @@ Read on 2026-11-15, from the copy installed in the game:
 5. A tooltip line on disenchantable items: what disenchanting it is worth after costs.
 6. Recording your own disenchants, with `/dtd data` comparing what you got to the table.
 
-**Later, or never (open questions below):**
+**Later, or never:**
 
-- A one-button disenchanter.
 - Feeding a shopping list into Auctionator.
 - Using your own results in the value.
 
@@ -294,6 +293,8 @@ DustToDust/
   DustToDust.toc        Interface 16001, SavedVariables DustToDustDB, OptionalDeps Auctionator
   Data.lua              tables: outcomes, skill needed, materials (pure data)
   Logic.lua             buckets, outcome values, net price, loss chance, filters (pure, tested)
+  Core.lua              saved settings, material prices (own check or Auctionator), /dtd
+  AH.lua                one auction house request at a time, behind the throttle
   Prices.lua            material price check queue + Auctionator fallback
   Scan.lua              the three browse searches, result table
   Panel.lua             panel, tab, rows, quick buy
@@ -317,13 +318,10 @@ commodity status, deposit formula, skill numbers.
    only covers retail expansions (Warlords of Draenor and later). If it shows nothing, our
    tooltip line is the only one.
 
-## Open questions for you
+## Decisions (2026-11-15)
 
-1. Should the one-button disenchanter be part of DustToDust? DisenchantValue has one; it
-   would come in version 2.
-2. Quick buy without a prompt, as in DisenchantValue. Is that OK, or should every purchase
-   need a confirmation?
-3. Defaults: 5% cut, 24 h deposit, 1s and 10% margin, hide over 50% loss chance. Any
-   changes?
-4. If you have DisenchantValue installed, should DustToDust's tooltip line be hidden?
-   Otherwise you get two lines.
+1. No one-button disenchanter.
+2. Quick buy without a prompt, as in DisenchantValue (a price rise still takes one click
+   to accept).
+3. Defaults as proposed: 5% cut, 24 h deposit, 1s and 10% margin, at most 50% loss chance.
+4. The tooltip line always shows; DisenchantValue is going to be uninstalled.

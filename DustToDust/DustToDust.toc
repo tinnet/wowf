@@ -1,0 +1,19 @@
+## Interface: 16001
+## Title: DustToDust
+## Notes: Finds weapons and armor on the auction house worth more disenchanted than they cost, after the auction house cut and deposit. Panel next to the auction house; click a row to buy.
+## Author: Martin Contento
+## Version: 0.1.0
+## IconTexture: Interface\Icons\INV_Enchant_DustStrange
+## OptionalDeps: Auctionator
+## SavedVariables: DustToDustDB
+
+Data.lua
+Logic.lua
+Core.lua
+AH.lua
+Prices.lua
+Scan.lua
+Panel.lua
+Tooltip.lua
+Record.lua
+Options.lua
