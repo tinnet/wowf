@@ -1,0 +1,11 @@
+## Interface: 16001
+## Title: CrateExpectations
+## Notes: A small crate on every item a Waylaid Crate takes, in bags, bank, merchant, loot, mail and auction house, and a tooltip line naming the shipment.
+## Author: Martin Contento
+## Version: 0.1.0
+## IconTexture: Interface\Icons\INV_Crate_01
+## SavedVariables: CrateExpectationsDB
+
+Logic.lua
+CrateExpectations.lua
+Options.lua
