@@ -60,6 +60,8 @@ where it came from and when. How to look up the API itself is in CLAUDE.md.
   shipments in 7 kinds (ore, ingots, herbs, parts, textiles, fabrics, curiosities), one
   bundle fills a crate: https://www.method.gg/wow-forever/how-to-get-waylaid-crates-and-merchants-favor-in-wow-forever
   (3 Nov 2026, beta data; read 2026-11-16). Not yet checked against a crate in game.
+  Crates can be traded and mailed until they're filled (seen in game by the player,
+  2026-11-16), so alts can mail theirs to one character who fills and turns them in.
 - Blessing of Kings is baseline: every Paladin trains it at level 20 (Classic: a
   Protection talent), and it lasts 1 hour. Source: Forever spell DB and guides, e.g.
   https://wow-forever.gg/db/spells/20217-blessing-of-kings/ (checked 2026-11-09).
