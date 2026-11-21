@@ -72,6 +72,7 @@ function ns.registerSettings()
             .. "Off: what selling them brings, after undercutting by a copper, the cut and the deposit."
     )
     Settings.SetOnValueChangedCallback("DUSTTODUST_USE_MYSELF", ns.changed)
+    ns.useMyselfSetting = useMyself -- the panel's "I use the mats" checkbox sets it too
 
     slider("minProfit", "Deal: profit at least", 1, 0, 100, 1, function(v)
         return v .. "s"

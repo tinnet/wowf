@@ -238,6 +238,8 @@ were.
 - Scan / Stop.
 - "Only profitable".
 - "Only what I can disenchant", shown when the character has Enchanting.
+- "I use the mats": the "I use the materials myself" setting, synced both ways with
+  Options. You flip it per session (selling vs leveling Enchanting), so it sits here too.
 - Item level bracket buttons.
 
 **Columns:**

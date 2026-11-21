@@ -34,6 +34,7 @@ local bracketButtons = {}
 local onlyDeals
 ---@type table
 local onlySkill
+local useMats
 local sortKey, sortDesc = "profit", true
 local statusMsg = "Press Scan to search for weapons and armor to disenchant."
 local skill -- your Enchanting, read when the auction house opens
@@ -635,6 +636,26 @@ local function createPanel()
     end)
     onlyDeals:SetScript("OnLeave", GameTooltip_Hide)
 
+    -- The same setting as in Options, so both stay in sync; anchored in onAuctionHouseShow.
+    useMats = checkbox("I use the mats", "useMyself", onlySkill.text)
+    useMats:SetScript("OnClick", function(self)
+        ns.useMyselfSetting:SetValue(self:GetChecked() and true or false) -- values everything again
+    end)
+    useMats:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:AddLine("I use the materials myself")
+        GameTooltip:AddLine(
+            "On: materials are worth their market price (for leveling Enchanting). "
+                .. "Off: what selling them brings, after undercutting by a copper, the cut and the deposit.",
+            1,
+            1,
+            1,
+            true
+        )
+        GameTooltip:Show()
+    end)
+    useMats:SetScript("OnLeave", GameTooltip_Hide)
+
     createBrackets(scanButton)
 
     local list = CreateFrame("Frame", nil, panel)
@@ -731,6 +752,9 @@ function ns.onAuctionHouseShow(retried)
     onlySkill:SetChecked(ns.db.onlySkill)
     onlySkill:SetShown(skill ~= nil)
     onlySkill.text:SetShown(skill ~= nil)
+    useMats:SetChecked(ns.db.useMyself)
+    useMats:ClearAllPoints()
+    useMats:SetPoint("LEFT", skill and onlySkill.text or onlyDeals.text, "RIGHT", 10, 0)
     paintBrackets()
     panel:Hide() -- starts closed every visit; the Dust tab opens it
     updateTab()
@@ -749,6 +773,9 @@ function ns.onAuctionHouseClosed()
 end
 
 ns.onChange(function()
+    if useMats then
+        useMats:SetChecked(ns.db.useMyself)
+    end
     Scan.reprice()
     Panel.refresh()
 end)
