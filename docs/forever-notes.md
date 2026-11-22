@@ -65,5 +65,13 @@ where it came from and when. How to look up the API itself is in CLAUDE.md.
 - Blessing of Kings is baseline: every Paladin trains it at level 20 (Classic: a
   Protection talent), and it lasts 1 hour. Source: Forever spell DB and guides, e.g.
   https://wow-forever.gg/db/spells/20217-blessing-of-kings/ (checked 2026-11-09).
+- Forever realms have layering. Layers are separate per world, and Forever's starter
+  islands are instance maps of their own directly under Azeroth (947): Zephras Isle
+  (UiMap 2521, plus a second, parentless row 2665) and Darkspear Islands (2524). Players
+  there can't share a layer with the continents, so a layer number on an island means
+  nothing on the mainland. Source: AutoLayer 1.9.15's `AutoLayer_Camelot.toc`
+  (`## Interface: 16001`) and `layerSegmentOverrides` in `AutoLayer.lua`, which cites
+  Questie's `docs/forever-development.md` for the map IDs
+  (https://github.com/iraizo/AutoLayer, read 2026-11-22). Not checked in game.
 - Classic spell IDs (rank 1) still name the same spells, e.g. 20217 Kings; names should
   still come from `C_Spell.GetSpellName` so other client languages work.
