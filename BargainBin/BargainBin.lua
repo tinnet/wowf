@@ -9,7 +9,8 @@
 -- gives every item's cheapest price per unit, not every auction. It isn't limited to
 -- once per 15 minutes, so it can be repeated to catch new listings before someone else
 -- buys them. An item whose cheapest unit is under vendor price is listed as an
--- estimate (see Logic.browse) until a click looks it up.
+-- estimate (see Logic.browse) until a click looks it up. A quick scan replaces only the
+-- last quick scan's estimates; what the full dump found stays until the next dump.
 --
 -- Buying: the dump has no auction IDs, and the game only buys from a click. So the
 -- first click on an item looks up its current auctions; every further click buys one
@@ -349,10 +350,10 @@ local function quickScan()
     if reading or quick then
         return
     end
-    wipe(deals)
-    wipe(waiting)
-    waitingCount = 0
-    selected = nil
+    Logic.dropEstimates(deals)
+    if selected and selected.estimate then
+        selected = nil
+    end
     local scan = { keys = {}, items = 0, waiting = false }
     quick = scan
     setStatus("Quick scan: searching...")

@@ -52,8 +52,9 @@ end
 -- a lookup (Logic.fromOffers, Logic.fromCommodity) replaces it: for an item bought
 -- auction by auction, what the cheapest one earns; for a pooled one, the most it could
 -- earn (every listed unit at the cheapest price). Item keys of the same item (suffixes,
--- item levels) share its vendor price; the cheapest one is kept. `key` is kept as is
--- for the lookup.
+-- item levels) share its vendor price; the cheapest one is kept. An item already listed
+-- with exact numbers (from the full dump or a lookup) is left as it is. `key` is kept
+-- as is for the lookup.
 function Logic.browse(deals, itemID, minPrice, listed, sellPrice, pooled, key)
     if not minPrice or minPrice <= 0 or not sellPrice or minPrice >= sellPrice then
         return
@@ -64,7 +65,7 @@ function Logic.browse(deals, itemID, minPrice, listed, sellPrice, pooled, key)
         return
     end
     local old = deals[itemID]
-    if old and old.minPrice and old.minPrice <= minPrice then
+    if old and (not old.estimate or old.minPrice <= minPrice) then
         return
     end
     deals[itemID] = {
@@ -80,6 +81,16 @@ function Logic.browse(deals, itemID, minPrice, listed, sellPrice, pooled, key)
         value = pooled and sellPrice * listed or sellPrice,
         profit = profit,
     }
+end
+
+-- Drops the estimates (Logic.browse) and keeps exact deals: a new quick scan replaces
+-- only what the last one found.
+function Logic.dropEstimates(deals)
+    for itemID, deal in pairs(deals) do
+        if deal.estimate then
+            deals[itemID] = nil
+        end
+    end
 end
 
 -- The deals worth showing, best profit first (ties: item ID, so the order is stable).

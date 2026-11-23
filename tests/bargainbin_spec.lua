@@ -90,6 +90,25 @@ describe("estimates from the browse search", function()
     end)
 end)
 
+describe("quick scan next to the full dump", function()
+    it("leaves an item the dump found alone", function()
+        local deals = {}
+        Logic.add(deals, 3864, 1, 633, 800) -- exact: 167
+        Logic.browse(deals, 3864, 300, 4, 800, false) -- cheaper now, but only an estimate
+        assert.is_nil(deals[3864].estimate)
+        assert.equal(167, deals[3864].profit)
+    end)
+
+    it("replaces only the last quick scan's estimates", function()
+        local deals = {}
+        Logic.add(deals, 3864, 1, 633, 800)
+        Logic.browse(deals, 2589, 1, 500, 2, true)
+        Logic.dropEstimates(deals)
+        assert.is_nil(deals[2589])
+        assert.equal(167, deals[3864].profit)
+    end)
+end)
+
 describe("a lookup replaces the estimate", function()
     it("with the offers that pay", function()
         local deals = {}
