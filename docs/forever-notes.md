@@ -73,5 +73,14 @@ where it came from and when. How to look up the API itself is in CLAUDE.md.
   (`## Interface: 16001`) and `layerSegmentOverrides` in `AutoLayer.lua`, which cites
   Questie's `docs/forever-development.md` for the map IDs
   (https://github.com/iraizo/AutoLayer, read 2026-11-22). Not checked in game.
+  Layering seems to be per zone: a group invite only moves you to the leader's layer
+  when the leader is in your zone (AutoLayer issue #143 and its 1.9.16 fix, from player
+  reports and its contributor's testing; Blizzard hasn't documented it).
+- NPC GUIDs don't show the layer, unlike Classic Era. Of `Creature-0-A-B-C-npcID-spawn`,
+  only B (the map: 36 Deadmines, 2999 Ruins of Lordaeron, 3065 Hall of Thanes) is shared. A (up to ~60000)
+  and C (up to ~16.7 million) differ for every creature, even within one Deadmines run
+  (ForeverDungeonJournal's saved GUIDs) and among NPCs in Stormwind's Trade District while
+  standing on one layer (LayerCake saw 19 different C values within a minute, 2026-11-22).
+  So the Classic trick (Nova World Buffs: C is the layer's zone ID) can't work here.
 - Classic spell IDs (rank 1) still name the same spells, e.g. 20217 Kings; names should
   still come from `C_Spell.GetSpellName` so other client languages work.
