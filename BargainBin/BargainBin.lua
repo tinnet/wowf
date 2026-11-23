@@ -76,6 +76,8 @@ local function refresh()
     if not panel then
         return
     end
+    -- one scan at a time: Quick is greyed out while either kind runs
+    quickButton:SetEnabled(not (quick or reading))
     list = Logic.sorted(deals)
     offset = math.max(0, math.min(offset, #list - ROWS))
     local profit, estimates = 0, false
@@ -210,6 +212,7 @@ local function readBatch(scan)
     if C_AuctionHouse.GetNumReplicateItems() ~= scan.count then
         reading = nil
         setStatus("The auction list changed while reading; scan again later.")
+        refresh()
         return
     end
     local last = math.min(scan.read + PER_FRAME, scan.count) - 1
@@ -247,6 +250,7 @@ local function startReading()
     waitingCount = 0
     selected = nil
     reading = { count = count, read = 0 }
+    refresh()
     readBatch(reading)
 end
 
@@ -332,7 +336,13 @@ local function quickResults(results)
     end
     scan.waiting = false
     if C_AuctionHouse.HasFullBrowseResults() then
-        quickDone(("Quick scan done: %d items checked."):format(scan.items))
+        quickDone(
+            ("Quick scan done: %d items checked, %d pages in %ds."):format(
+                scan.items,
+                scan.pages,
+                GetTime() - scan.started
+            )
+        )
         return
     end
     setStatus(("Quick scan: %d items so far..."):format(scan.items))
@@ -340,6 +350,7 @@ local function quickResults(results)
     send(function()
         if quick == scan then
             scan.waiting = true
+            scan.pages = scan.pages + 1
             watchPage(scan)
             C_AuctionHouse.RequestMoreBrowseResults()
         end
@@ -354,13 +365,14 @@ local function quickScan()
     if selected and selected.estimate then
         selected = nil
     end
-    local scan = { keys = {}, items = 0, waiting = false }
+    local scan = { keys = {}, items = 0, pages = 0, started = GetTime(), waiting = false }
     quick = scan
     setStatus("Quick scan: searching...")
     refresh()
     send(function()
         if quick == scan then
             scan.waiting = true
+            scan.pages = scan.pages + 1
             watchPage(scan)
             C_AuctionHouse.SendBrowseQuery({ searchString = "", sorts = {} })
         end
