@@ -700,6 +700,11 @@ local function createPanel()
     totalsText:SetJustifyH("RIGHT")
 
     panel:SetScript("OnShow", function()
+        -- BargainBin's window sits in the same place
+        local other = _G["BargainBinPanel"]
+        if other and other:IsShown() then
+            other:Hide()
+        end
         Panel.refresh()
         updateTab()
         Prices.check() -- at most every 5 minutes

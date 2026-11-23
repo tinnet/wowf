@@ -2,6 +2,7 @@
 local ns = {}
 assert(loadfile("BargainBin/Logic.lua"))("BargainBin", ns)
 local Logic = ns.Logic
+local EACH = { each = true }
 
 describe("profit", function()
     it("is vendor price times stack minus buyout", function()
@@ -26,15 +27,20 @@ describe("collecting deals from the dump", function()
         Logic.add(deals, 770, 1, 400, 316) -- over vendor price
         local list = Logic.sorted(deals)
         assert.equal(2, #list)
-        assert.same({
-            itemID = 4390,
-            auctions = 2,
-            units = 110,
-            cost = 23780,
-            value = 55000,
-            profit = 31220,
-        }, list[1])
+        local d = list[1]
+        assert.same(
+            { 4390, 2, 110, 23780, 55000, 31220 },
+            { d.itemID, d.auctions, d.units, d.cost, d.value, d.profit }
+        )
         assert.equal(3864, list[2].itemID)
+    end)
+
+    it("counts many small auctions of an item that doesn't stack only one by one", function()
+        local deals = {}
+        for _ = 1, 510 do
+            Logic.add(deals, 2866, 1, 198, 200) -- Rough Bronze Leggings, 2c under each
+        end
+        assert.equal(0, #Logic.sorted(deals))
     end)
 end)
 
@@ -55,6 +61,40 @@ describe("pooled (stackable) items from the dump", function()
         local deals = {}
         Logic.add(deals, 2589, 20, 20, 2, true) -- 20c in all
         assert.equal(0, #Logic.sorted(deals))
+    end)
+end)
+
+describe("at least 1s each", function()
+    it("counts only auctions where every unit earns the floor", function()
+        local deals = {}
+        Logic.add(deals, 4390, 10, 1780, 500) -- 322c each
+        Logic.add(deals, 4390, 100, 22000, 500) -- 280c each
+        Logic.add(deals, 4390, 20, 9000, 500) -- 50c each: 1000 for the stack, but not each
+        local all = Logic.sorted(deals)[1]
+        assert.equal(3, all.auctions)
+        local each = Logic.sorted(deals, EACH)[1]
+        assert.equal(2, each.auctions)
+        assert.equal(110, each.units)
+        assert.equal(31220, each.profit)
+    end)
+
+    it("drops pooled items earning copper per unit, however many", function()
+        local deals = {}
+        for _ = 1, 30 do
+            Logic.add(deals, 2589, 20, 20, 2, true)
+        end
+        assert.equal(1, #Logic.sorted(deals))
+        assert.equal(0, #Logic.sorted(deals, EACH))
+    end)
+
+    it("applies to estimates by the gap per unit", function()
+        local deals = {}
+        Logic.browse(deals, 2589, 1, 500, 2, true) -- 1c under, 500 listed
+        Logic.browse(deals, 3864, 633, 4, 800, false) -- 167c under
+        assert.equal(2, #Logic.sorted(deals))
+        local list = Logic.sorted(deals, EACH)
+        assert.equal(1, #list)
+        assert.equal(3864, list[1].itemID)
     end)
 end)
 
@@ -85,6 +125,7 @@ describe("estimates from the browse search", function()
         Logic.browse(deals, 15210, 500, 1, 900, false, "of the Bear")
         Logic.browse(deals, 15210, 300, 1, 900, false, "of the Monkey")
         Logic.browse(deals, 15210, 400, 1, 900, false, "of the Owl")
+        Logic.sorted(deals)
         assert.equal("of the Monkey", deals[15210].itemKey)
         assert.equal(600, deals[15210].profit)
     end)
@@ -95,6 +136,7 @@ describe("quick scan next to the full dump", function()
         local deals = {}
         Logic.add(deals, 3864, 1, 633, 800) -- exact: 167
         Logic.browse(deals, 3864, 300, 4, 800, false) -- cheaper now, but only an estimate
+        Logic.sorted(deals)
         assert.is_nil(deals[3864].estimate)
         assert.equal(167, deals[3864].profit)
     end)
@@ -105,37 +147,39 @@ describe("quick scan next to the full dump", function()
         Logic.browse(deals, 2589, 1, 500, 2, true)
         Logic.dropEstimates(deals)
         assert.is_nil(deals[2589])
-        assert.equal(167, deals[3864].profit)
+        assert.is_not_nil(deals[3864])
     end)
 end)
 
 describe("a lookup replaces the estimate", function()
-    it("with the offers that pay", function()
+    it("with the offers that pay, and buying one removes it", function()
         local deals = {}
         Logic.browse(deals, 3864, 633, 4, 800, false)
         local deal = deals[3864]
-        Logic.fromOffers(deal, {
+        local offers = {
             { auctionID = 1, quantity = 1, buyout = 633, profit = 167 },
             { auctionID = 2, quantity = 1, buyout = 650, profit = 150 },
-        })
+        }
+        Logic.fromOffers(deal, offers)
+        Logic.total(deal)
         assert.is_nil(deal.estimate)
-        assert.same({ 2, 2, 1283, 317, 1600 }, {
-            deal.auctions,
-            deal.units,
-            deal.cost,
-            deal.profit,
-            deal.value,
-        })
+        assert.same(
+            { 2, 2, 1283, 317, 1600 },
+            { deal.auctions, deal.units, deal.cost, deal.profit, deal.value }
+        )
+        table.remove(offers, 1) -- bought
+        Logic.total(deal)
+        assert.equal(150, deal.profit)
     end)
 
     it("with the commodity units that pay", function()
         local deals = {}
         Logic.browse(deals, 2589, 1, 500, 2, true)
         local deal = deals[2589]
-        Logic.fromCommodity(deal, 120, 120, 6, 2)
+        Logic.fromCommodity(deal, 120, 120)
+        Logic.total(deal)
         assert.is_nil(deal.estimate)
         assert.equal(120, deal.profit)
-        assert.equal(6, deal.auctions)
     end)
 end)
 
@@ -148,14 +192,18 @@ describe("offers from an item search", function()
         { auctionID = 5, quantity = 10 }, -- bid only
         { auctionID = 6, quantity = 5, buyoutAmount = 100 }, -- 2400
         { auctionID = 7, quantity = 1, buyoutAmount = 497 }, -- 3: too little
+        { auctionID = 8, quantity = 20, buyoutAmount = 8000 }, -- 2000, but 100 each
+        { auctionID = 9, quantity = 20, buyoutAmount = 8100 }, -- 1900, 95 each
     }
 
     it("lists those that pay, best first, never your own", function()
         local offers = Logic.offers(results, 500)
-        assert.same({ 2, 1, 6 }, {
+        assert.same({ 2, 1, 6, 8, 9 }, {
             offers[1].auctionID,
             offers[2].auctionID,
             offers[3].auctionID,
+            offers[4].auctionID,
+            offers[5].auctionID,
         })
         assert.equal(8000, offers[1].profit)
     end)
@@ -163,13 +211,19 @@ describe("offers from an item search", function()
     it("skips auctions already bought", function()
         local offers = Logic.offers(results, 500, { [2] = true })
         assert.equal(1, offers[1].auctionID)
-        assert.equal(2, #offers)
+        assert.equal(4, #offers)
+    end)
+
+    it("keeps only 1s each under that rule", function()
+        local offers = Logic.offers(results, 500, nil, EACH)
+        assert.equal(4, #offers)
+        assert.equal(8, offers[4].auctionID)
     end)
 end)
 
 describe("commodity units", function()
     it("takes the cheapest units up to the first that doesn't pay", function()
-        local units, cost, listings = Logic.commodityUnits({
+        local units, cost = Logic.commodityUnits({
             { quantity = 30, unitPrice = 178 },
             { quantity = 10, unitPrice = 400 },
             { quantity = 5, unitPrice = 500 },
@@ -177,7 +231,6 @@ describe("commodity units", function()
         }, 500)
         assert.equal(40, units)
         assert.equal(30 * 178 + 10 * 400, cost)
-        assert.equal(2, listings)
     end)
 
     it("stops at your own listing, which a purchase can't skip", function()
@@ -186,5 +239,13 @@ describe("commodity units", function()
             { quantity = 30, unitPrice = 178 },
         }, 500)
         assert.equal(0, units)
+    end)
+
+    it("stops at the first unit earning under 1s under that rule", function()
+        local units = Logic.commodityUnits({
+            { quantity = 30, unitPrice = 178 },
+            { quantity = 10, unitPrice = 401 }, -- 99c each
+        }, 500, EACH)
+        assert.equal(30, units)
     end)
 end)
