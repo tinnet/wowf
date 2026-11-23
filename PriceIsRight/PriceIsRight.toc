@@ -1,0 +1,11 @@
+## Interface: 16001
+## Title: PriceIsRight
+## Notes: Search Auctionator's price database by item name: last price, price history, your posts and the item's tooltip.
+## Author: Martin Contento
+## Version: 0.1.0
+## IconTexture: Interface\Icons\INV_Misc_Coin_02
+## OptionalDeps: Auctionator
+## AddonCompartmentFunc: PriceIsRight_Toggle
+
+Logic.lua
+PriceIsRight.lua
