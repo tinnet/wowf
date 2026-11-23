@@ -9,6 +9,10 @@ Personal WoW addons for one player, not for public release.
 - If supporting every class would be a lot of extra work, focus on the classes I play:
   druid, warrior, rogue, paladin. Others can be best-effort or skipped.
 - See README.md for tooling; run `just check`, `just test` and `just fmt` before committing.
+- Commits are SSH-signed (via 1Password). The global `gpg.ssh.allowedSignersFile`
+  (`~/.config/git/allowed_signers`, the keys from github.com/tinnet's SSH signing keys) lets
+  git verify them: `git log --show-signature` / `%G?` = `G` is expected. If it says `N` or
+  "allowedSignersFile needs to be configured", that's local config, not unsigned commits.
 - Unit tests (`tests/`, busted) only cover plain logic split into its own file that takes
   data and calls no game API (e.g. `KindHands/Logic.lua`). Don't fake the game API to test
   more: fakes encode our guesses about the client, the same trap as stubbing in `types/`.
