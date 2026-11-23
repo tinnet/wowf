@@ -38,6 +38,88 @@ describe("collecting deals from the dump", function()
     end)
 end)
 
+describe("pooled (stackable) items from the dump", function()
+    it("adds up small margins per item, since one purchase takes them all", function()
+        local deals = {}
+        for _ = 1, 30 do
+            Logic.add(deals, 2589, 20, 20, 2, true) -- Linen Cloth at 1c, vendor 2c: 20c a stack
+        end
+        Logic.add(deals, 2589, 20, 60, 2, true) -- over vendor price: left out
+        local list = Logic.sorted(deals)
+        assert.equal(1, #list)
+        assert.equal(30, list[1].auctions)
+        assert.equal(600, list[1].profit)
+    end)
+
+    it("hides an item whose total stays under the floor", function()
+        local deals = {}
+        Logic.add(deals, 2589, 20, 20, 2, true) -- 20c in all
+        assert.equal(0, #Logic.sorted(deals))
+    end)
+end)
+
+describe("estimates from the browse search", function()
+    it("keeps an item whose cheapest auction earns the floor", function()
+        local deals = {}
+        Logic.browse(deals, 3864, 633, 4, 800, false, "key") -- 167 under
+        Logic.browse(deals, 2852, 400, 9, 403, false) -- 3 under: not worth a click
+        Logic.browse(deals, 770, 400, 9, 316, false) -- over vendor price
+        local list = Logic.sorted(deals)
+        assert.equal(1, #list)
+        assert.equal(167, list[1].profit)
+        assert.equal("key", list[1].itemKey)
+        assert.is_true(list[1].estimate)
+    end)
+
+    it("counts every listed unit of a pooled item as the most it could earn", function()
+        local deals = {}
+        Logic.browse(deals, 2589, 1, 500, 2, true) -- 1c under, 500 listed
+        Logic.browse(deals, 2592, 1, 50, 2, true) -- at most 50c
+        local list = Logic.sorted(deals)
+        assert.equal(1, #list)
+        assert.equal(500, list[1].profit)
+    end)
+
+    it("keeps the cheapest item key of an item", function()
+        local deals = {}
+        Logic.browse(deals, 15210, 500, 1, 900, false, "of the Bear")
+        Logic.browse(deals, 15210, 300, 1, 900, false, "of the Monkey")
+        Logic.browse(deals, 15210, 400, 1, 900, false, "of the Owl")
+        assert.equal("of the Monkey", deals[15210].itemKey)
+        assert.equal(600, deals[15210].profit)
+    end)
+end)
+
+describe("a lookup replaces the estimate", function()
+    it("with the offers that pay", function()
+        local deals = {}
+        Logic.browse(deals, 3864, 633, 4, 800, false)
+        local deal = deals[3864]
+        Logic.fromOffers(deal, {
+            { auctionID = 1, quantity = 1, buyout = 633, profit = 167 },
+            { auctionID = 2, quantity = 1, buyout = 650, profit = 150 },
+        })
+        assert.is_nil(deal.estimate)
+        assert.same({ 2, 2, 1283, 317, 1600 }, {
+            deal.auctions,
+            deal.units,
+            deal.cost,
+            deal.profit,
+            deal.value,
+        })
+    end)
+
+    it("with the commodity units that pay", function()
+        local deals = {}
+        Logic.browse(deals, 2589, 1, 500, 2, true)
+        local deal = deals[2589]
+        Logic.fromCommodity(deal, 120, 120, 6, 2)
+        assert.is_nil(deal.estimate)
+        assert.equal(120, deal.profit)
+        assert.equal(6, deal.auctions)
+    end)
+end)
+
 describe("offers from an item search", function()
     local results = {
         { auctionID = 1, quantity = 10, buyoutAmount = 2000 }, -- 3000
@@ -68,7 +150,7 @@ end)
 
 describe("commodity units", function()
     it("takes the cheapest units up to the first that doesn't pay", function()
-        local units, cost = Logic.commodityUnits({
+        local units, cost, listings = Logic.commodityUnits({
             { quantity = 30, unitPrice = 178 },
             { quantity = 10, unitPrice = 400 },
             { quantity = 5, unitPrice = 500 },
@@ -76,6 +158,7 @@ describe("commodity units", function()
         }, 500)
         assert.equal(40, units)
         assert.equal(30 * 178 + 10 * 400, cost)
+        assert.equal(2, listings)
     end)
 
     it("stops at your own listing, which a purchase can't skip", function()

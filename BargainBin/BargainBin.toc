@@ -1,8 +1,8 @@
 ## Interface: 16001
 ## Title: BargainBin
-## Notes: Lists auctions that cost less than a vendor pays for them, in a panel next to the auction house; click to look up, click again to buy.
+## Notes: Lists auctions that cost less than a vendor pays for them (quick or full scan), in a panel next to the auction house; click to look up, click again to buy.
 ## Author: Martin Contento
-## Version: 0.1.0
+## Version: 0.2.0
 ## IconTexture: Interface\Icons\INV_Misc_Bag_10
 
 Logic.lua

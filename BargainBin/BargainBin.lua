@@ -5,6 +5,12 @@
 -- with the item's vendor price times the stack size, and lists the items that pay in a
 -- panel next to the auction house, best profit first.
 --
+-- Quick scan (the Quick button): the auction house's own search with no filters, which
+-- gives every item's cheapest price per unit, not every auction. It isn't limited to
+-- once per 15 minutes, so it can be repeated to catch new listings before someone else
+-- buys them. An item whose cheapest unit is under vendor price is listed as an
+-- estimate (see Logic.browse) until a click looks it up.
+--
 -- Buying: the dump has no auction IDs, and the game only buys from a click. So the
 -- first click on an item looks up its current auctions; every further click buys one
 -- auction that still pays (best first). Each lookup is trusted for a minute. Stackable
@@ -22,19 +28,23 @@ local QUIET = 3 -- read once no update event has come for this many seconds...
 local MAX_WAIT = 30 -- ...or this long after the first one
 local OFFER_TTL = 60 -- seconds a lookup is trusted for buying
 local LOOKUP_TIMEOUT = 5 -- seconds before an unanswered search is sent again (once)
+local QUICK_TIMEOUT = 15 -- seconds the quick scan waits for a page before giving up
 local ROWS = 14
 
 local deals = {} -- itemID -> deal (Logic.add)
 local list = {} -- Logic.sorted(deals), what the panel shows
 local prices = {} -- itemID -> vendor price per unit (0: none)
-local waiting = {} -- itemID -> { {count, buyout}, ... } auctions waiting for the price
+local pooled = {} -- itemID -> true when it stacks (Logic.MIN_PROFIT says why that matters)
+local waiting = {} -- itemID -> { fn(price, pooled), ... } results waiting for the price
 local waitingCount = 0
 local bought = {} -- auctionID -> true: bought this session, never offered again
 local earned = { spent = 0, value = 0 } -- what was bought this session
 
 local requested, timer, firstEvent, reading
+local quick -- the running quick scan: { keys = seen item keys, items, waiting }
+local pendingSend -- a quick scan request waiting for the auction house's throttle
 local selected -- the deal the next click acts on: { lookup state on it }
-local panel, statusText, totalText, scanButton
+local panel, statusText, totalText, scanButton, quickButton
 local rows = {}
 local offset = 0
 
@@ -67,12 +77,21 @@ local function refresh()
     end
     list = Logic.sorted(deals)
     offset = math.max(0, math.min(offset, #list - ROWS))
-    local profit = 0
+    local profit, estimates = 0, false
     for _, deal in ipairs(list) do
         profit = profit + deal.profit
+        estimates = estimates or deal.estimate
     end
     totalText:SetText(
-        (#list > 0 and ("%d item(s), %s profit"):format(#list, money(profit)) or "No deals.")
+        (
+            #list > 0
+                and ("%d item(s), %s%s profit"):format(
+                    #list,
+                    estimates and "up to " or "",
+                    money(profit)
+                )
+            or "No deals."
+        )
             .. (waitingCount > 0 and (" (%d prices loading)"):format(waitingCount) or "")
             .. (
                 earned.spent > 0
@@ -89,13 +108,21 @@ local function refresh()
         if deal then
             row.icon:SetTexture(C_Item.GetItemIconByID(deal.itemID))
             row.name:SetText(itemName(deal.itemID))
-            row.count:SetText(
-                ("%d in %d, %s each"):format(
-                    deal.units,
-                    deal.auctions,
-                    money(deal.profit / deal.auctions)
+            if deal.estimate and deal.pooled then
+                row.count:SetText(
+                    ("%d listed, from %s each; up to"):format(deal.units, money(deal.minPrice))
                 )
-            )
+            elseif deal.estimate then
+                row.count:SetText(("cheapest %s; at least"):format(money(deal.minPrice)))
+            else
+                row.count:SetText(
+                    ("%d in %d, %s each"):format(
+                        deal.units,
+                        deal.auctions,
+                        money(deal.profit / math.max(1, deal.auctions))
+                    )
+                )
+            end
             row.profit:SetText(money(deal.profit))
             row.selected:SetShown(selected == deal)
             row:Show()
@@ -108,23 +135,26 @@ end
 ---------------------------------------------------------------------------
 -- Reading the dump
 ---------------------------------------------------------------------------
--- The item's vendor price per unit, or nil while the client loads the item.
+-- The item's vendor price per unit and whether it stacks, or nil while the client
+-- loads the item.
 local function priceOf(itemID)
     local price = prices[itemID]
     if price == nil then
-        local sell = select(11, C_Item.GetItemInfo(itemID))
+        local _, _, _, _, _, _, _, stack, _, _, sell = C_Item.GetItemInfo(itemID)
         if sell then
             price = sell
             prices[itemID] = sell
+            pooled[itemID] = (stack or 1) > 1
         end
     end
-    return price
+    return price, pooled[itemID]
 end
 
-local function addAuction(itemID, count, buyout)
-    local price = priceOf(itemID)
+-- Calls fn(price, pooled) now, or once the client has loaded the item.
+local function whenPriced(itemID, fn)
+    local price, stacks = priceOf(itemID)
     if price then
-        Logic.add(deals, itemID, count, buyout, price)
+        fn(price, stacks)
         return
     end
     local queue = waiting[itemID]
@@ -134,7 +164,13 @@ local function addAuction(itemID, count, buyout)
         waitingCount = waitingCount + 1
         C_Item.RequestLoadItemDataByID(itemID)
     end
-    queue[#queue + 1] = { count, buyout }
+    queue[#queue + 1] = fn
+end
+
+local function addAuction(itemID, count, buyout)
+    whenPriced(itemID, function(price, stacks)
+        Logic.add(deals, itemID, count, buyout, price, stacks)
+    end)
 end
 
 -- Many items arrive in a burst: redraw once for all of them.
@@ -151,14 +187,17 @@ end
 
 local function priceArrived(itemID)
     local queue = waiting[itemID]
-    local price = queue and priceOf(itemID)
+    if not queue then
+        return
+    end
+    local price, stacks = priceOf(itemID)
     if not price then
         return
     end
     waiting[itemID] = nil
     waitingCount = waitingCount - 1
-    for _, auction in ipairs(queue) do
-        Logic.add(deals, itemID, auction[1], auction[2], price)
+    for _, fn in ipairs(queue) do
+        fn(price, stacks)
     end
     scheduleRefresh()
 end
@@ -200,7 +239,8 @@ local function startReading()
         setStatus("The scan came back empty.")
         return
     end
-    -- a new dump replaces what the last one found
+    -- a new dump replaces what the last one found, and a quick scan
+    quick, pendingSend = nil, nil
     wipe(deals)
     wipe(waiting)
     waitingCount = 0
@@ -232,6 +272,101 @@ hooksecurefunc(C_AuctionHouse, "ReplicateItems", function()
 end)
 
 ---------------------------------------------------------------------------
+-- Quick scan (the browse search)
+---------------------------------------------------------------------------
+-- Sends fn's request once the auction house's throttle allows it.
+local function send(fn)
+    if C_AuctionHouse.IsThrottledMessageSystemReady() then
+        pendingSend = nil
+        fn()
+    else
+        pendingSend = fn -- AUCTION_HOUSE_THROTTLED_SYSTEM_READY sends it
+    end
+end
+
+local function quickDone(text)
+    quick, pendingSend = nil, nil
+    setStatus(text)
+    refresh()
+end
+
+-- Gives up when the page asked for at `sentAt` never arrives.
+local function watchPage(scan)
+    local sentAt = GetTime()
+    scan.sentAt = sentAt
+    C_Timer.After(QUICK_TIMEOUT, function()
+        if quick == scan and scan.waiting and scan.sentAt == sentAt then
+            quickDone("The auction house stopped answering; the list may be incomplete.")
+        end
+    end)
+end
+
+-- A page of results. UPDATED (with everything so far) and ADDED (with the new page)
+-- may both come for one page, so results are counted once per item key and the next
+-- page is asked for once.
+local function quickResults(results)
+    local scan = quick
+    if not scan then
+        return
+    end
+    for _, r in ipairs(results) do
+        local key = r.itemKey
+        local id = ("%d:%d:%d:%d"):format(
+            key.itemID,
+            key.itemLevel or 0,
+            key.itemSuffix or 0,
+            key.battlePetSpeciesID or 0
+        )
+        if not scan.keys[id] and (key.battlePetSpeciesID or 0) == 0 then
+            scan.keys[id] = true
+            scan.items = scan.items + 1
+            local itemID, minPrice, listed = key.itemID, r.minPrice, r.totalQuantity
+            whenPriced(itemID, function(price, stacks)
+                Logic.browse(deals, itemID, minPrice, listed, price, stacks, key)
+            end)
+        end
+    end
+    if not scan.waiting then
+        return
+    end
+    scan.waiting = false
+    if C_AuctionHouse.HasFullBrowseResults() then
+        quickDone(("Quick scan done: %d items checked."):format(scan.items))
+        return
+    end
+    setStatus(("Quick scan: %d items so far..."):format(scan.items))
+    scheduleRefresh()
+    send(function()
+        if quick == scan then
+            scan.waiting = true
+            watchPage(scan)
+            C_AuctionHouse.RequestMoreBrowseResults()
+        end
+    end)
+end
+
+local function quickScan()
+    if reading or quick then
+        return
+    end
+    wipe(deals)
+    wipe(waiting)
+    waitingCount = 0
+    selected = nil
+    local scan = { keys = {}, items = 0, waiting = false }
+    quick = scan
+    setStatus("Quick scan: searching...")
+    refresh()
+    send(function()
+        if quick == scan then
+            scan.waiting = true
+            watchPage(scan)
+            C_AuctionHouse.SendBrowseQuery({ searchString = "", sorts = {} })
+        end
+    end)
+end
+
+---------------------------------------------------------------------------
 -- Buying
 ---------------------------------------------------------------------------
 local function remove(deal)
@@ -249,7 +384,8 @@ local function sendLookup(deal)
     end
     deal.lookupDue, deal.lookupSent = false, GetTime()
     local sorts = { { sortOrder = Enum.AuctionHouseSortOrder.Price, reverseSort = false } }
-    C_AuctionHouse.SendSearchQuery(C_AuctionHouse.MakeItemKey(deal.itemID), sorts, true)
+    local key = deal.itemKey or C_AuctionHouse.MakeItemKey(deal.itemID)
+    C_AuctionHouse.SendSearchQuery(key, sorts, true)
     local sent = deal.lookupSent
     C_Timer.After(LOOKUP_TIMEOUT, function()
         if selected == deal and deal.lookupSent == sent then
@@ -296,16 +432,14 @@ local function itemResults(itemKey)
         remove(deal)
         return
     end
-    local profit = 0
-    for _, offer in ipairs(deal.offers) do
-        profit = profit + offer.profit
-    end
+    Logic.fromOffers(deal, deal.offers)
     setStatus(
         ("%d auction(s), %s profit. Click to buy them one by one, best first."):format(
             #deal.offers,
-            money(profit)
+            money(deal.profit)
         )
     )
+    refresh()
 end
 
 -- The lookup's answer for a commodity: how many units cost less than a vendor pays.
@@ -322,9 +456,21 @@ local function commodityResults(itemID)
         end
     end
     deal.lookupSent = nil
-    local units, cost = Logic.commodityUnits(results, prices[itemID])
+    local units, cost, listings = Logic.commodityUnits(results, prices[itemID])
     if units == 0 then
         setStatus(itemName(itemID) .. " isn't listed under vendor price any more.")
+        remove(deal)
+        return
+    end
+    Logic.fromCommodity(deal, units, cost, listings, prices[itemID])
+    if deal.profit < Logic.MIN_PROFIT then
+        setStatus(
+            ("%s: only %d under vendor price now, %s profit."):format(
+                itemName(itemID),
+                units,
+                money(deal.profit)
+            )
+        )
         remove(deal)
         return
     end
@@ -336,6 +482,7 @@ local function commodityResults(itemID)
             money(units * prices[itemID])
         )
     )
+    refresh()
 end
 
 local function recordBuy(cost, value)
@@ -409,7 +556,7 @@ end
 
 local function onRowClick(row)
     local deal = row.deal
-    if not deal or reading then
+    if not deal or reading or quick then
         return
     end
     local fresh = selected == deal and deal.offerAt and GetTime() - deal.offerAt < OFFER_TTL
@@ -449,11 +596,30 @@ local function createRow(i)
     row:SetScript("OnEnter", function(self)
         if self.deal then
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            GameTooltip:SetItemByID(self.deal.itemID)
+            local deal = self.deal
+            GameTooltip:SetItemByID(deal.itemID)
             GameTooltip:AddLine(" ")
-            GameTooltip:AddDoubleLine("Buyout total", money(self.deal.cost), 1, 1, 1, 1, 1, 1)
-            GameTooltip:AddDoubleLine("Vendor pays", money(self.deal.value), 1, 1, 1, 1, 1, 1)
-            GameTooltip:AddLine("Click: look up, then click again to buy.", 0.7, 0.7, 0.7)
+            if deal.estimate then
+                GameTooltip:AddDoubleLine("Cheapest", money(deal.minPrice), 1, 1, 1, 1, 1, 1)
+                GameTooltip:AddDoubleLine("Vendor pays", money(deal.sellPrice), 1, 1, 1, 1, 1, 1)
+                GameTooltip:AddLine(
+                    "From the quick scan, which only sees the cheapest price.",
+                    0.7,
+                    0.7,
+                    0.7,
+                    true
+                )
+                GameTooltip:AddLine(
+                    "Click: check how many pay, then click again to buy.",
+                    0.7,
+                    0.7,
+                    0.7
+                )
+            else
+                GameTooltip:AddDoubleLine("Buyout total", money(deal.cost), 1, 1, 1, 1, 1, 1)
+                GameTooltip:AddDoubleLine("Vendor pays", money(deal.value), 1, 1, 1, 1, 1, 1)
+                GameTooltip:AddLine("Click: look up, then click again to buy.", 0.7, 0.7, 0.7)
+            end
             GameTooltip:Show()
         end
     end)
@@ -471,9 +637,9 @@ local function createPanel()
     panel.TitleText:SetText("BargainBin: under vendor price")
 
     scanButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    scanButton:SetSize(70, 22)
+    scanButton:SetSize(56, 22)
     scanButton:SetPoint("TOPRIGHT", -10, -28)
-    scanButton:SetText("Scan")
+    scanButton:SetText("Full")
     scanButton:SetScript("OnClick", function()
         C_AuctionHouse.ReplicateItems()
     end)
@@ -493,15 +659,36 @@ local function createPanel()
         GameTooltip:Hide()
     end)
 
+    quickButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    quickButton:SetSize(56, 22)
+    quickButton:SetPoint("RIGHT", scanButton, "LEFT", -4, 0)
+    quickButton:SetText("Quick")
+    quickButton:SetScript("OnClick", quickScan)
+    quickButton:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:AddLine("Quick scan")
+        GameTooltip:AddLine(
+            "Every item's cheapest price, not every auction. Repeat it any time to catch new listings.",
+            1,
+            1,
+            1,
+            true
+        )
+        GameTooltip:Show()
+    end)
+    quickButton:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+
     totalText = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     totalText:SetPoint("TOPLEFT", 12, -28)
-    totalText:SetPoint("RIGHT", scanButton, "LEFT", -6, 0)
+    totalText:SetPoint("RIGHT", quickButton, "LEFT", -6, 0)
     totalText:SetJustifyH("LEFT")
     statusText = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     statusText:SetPoint("TOPLEFT", 12, -54)
     statusText:SetPoint("RIGHT", -12, 0)
     statusText:SetJustifyH("LEFT")
-    statusText:SetText("Scan, or let another addon's full scan arrive.")
+    statusText:SetText("Quick or full scan, or let another addon's full scan arrive.")
 
     for i = 1, ROWS do
         rows[i] = createRow(i)
@@ -542,6 +729,9 @@ f:RegisterEvent("ITEM_SEARCH_RESULTS_UPDATED")
 f:RegisterEvent("COMMODITY_SEARCH_RESULTS_UPDATED")
 f:RegisterEvent("COMMODITY_PRICE_UPDATED")
 f:RegisterEvent("AUCTION_HOUSE_THROTTLED_SYSTEM_READY")
+f:RegisterEvent("AUCTION_HOUSE_BROWSE_RESULTS_UPDATED")
+f:RegisterEvent("AUCTION_HOUSE_BROWSE_RESULTS_ADDED")
+f:RegisterEvent("AUCTION_HOUSE_BROWSE_FAILURE")
 f:SetScript("OnEvent", function(_, event, a, b)
     if event == "AUCTION_HOUSE_SHOW" then
         showPanel()
@@ -550,6 +740,7 @@ f:SetScript("OnEvent", function(_, event, a, b)
             timer:Cancel()
         end
         timer, firstEvent, requested, reading = nil, nil, false, nil
+        quick, pendingSend = nil, nil
         if selected then
             selected.lookupSent, selected.offerAt, selected.starting = nil, nil, false
             selected = nil
@@ -569,8 +760,20 @@ f:SetScript("OnEvent", function(_, event, a, b)
     elseif event == "COMMODITY_PRICE_UPDATED" then
         commodityPrice(a, b)
     elseif event == "AUCTION_HOUSE_THROTTLED_SYSTEM_READY" then
-        if selected and selected.lookupDue then
+        if pendingSend then
+            send(pendingSend)
+        elseif selected and selected.lookupDue then
             sendLookup(selected)
+        end
+    elseif event == "AUCTION_HOUSE_BROWSE_RESULTS_UPDATED" then
+        if quick then
+            quickResults(C_AuctionHouse.GetBrowseResults())
+        end
+    elseif event == "AUCTION_HOUSE_BROWSE_RESULTS_ADDED" then
+        quickResults(a)
+    elseif event == "AUCTION_HOUSE_BROWSE_FAILURE" then
+        if quick then
+            quickDone("The auction house search failed. Try again.")
         end
     end
 end)
