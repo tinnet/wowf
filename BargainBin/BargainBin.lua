@@ -30,6 +30,17 @@ local MAX_WAIT = 30 -- ...or this long after the first one
 local OFFER_TTL = 60 -- seconds a lookup is trusted for buying
 local LOOKUP_TIMEOUT = 5 -- seconds before an unanswered search is sent again (once)
 local QUICK_TIMEOUT = 15 -- seconds the quick scan waits for a page before giving up
+-- Quality filters are opt-in: a browse search without any matches nothing. Blizzard's
+-- search bar sends all of them by default (AUCTION_HOUSE_DEFAULT_FILTERS).
+local F = Enum.AuctionHouseFilter
+local ALL_QUALITIES = {
+    F.PoorQuality,
+    F.CommonQuality,
+    F.UncommonQuality,
+    F.RareQuality,
+    F.EpicQuality,
+    F.LegendaryQuality,
+}
 local ROWS = 14
 
 local deals = {} -- itemID -> deal (Logic.add)
@@ -336,6 +347,10 @@ local function quickResults(results)
     end
     scan.waiting = false
     if C_AuctionHouse.HasFullBrowseResults() then
+        if scan.items == 0 then
+            quickDone("The quick scan came back empty.")
+            return
+        end
         quickDone(
             ("Quick scan done: %d items checked, %d pages in %ds."):format(
                 scan.items,
@@ -374,7 +389,11 @@ local function quickScan()
             scan.waiting = true
             scan.pages = scan.pages + 1
             watchPage(scan)
-            C_AuctionHouse.SendBrowseQuery({ searchString = "", sorts = {} })
+            C_AuctionHouse.SendBrowseQuery({
+                searchString = "",
+                sorts = {},
+                filters = ALL_QUALITIES,
+            })
         end
     end)
 end
