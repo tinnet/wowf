@@ -1,0 +1,11 @@
+## Interface: 16001
+## Title: TimeWellSpent
+## Notes: /played for every character on the account, by class. /aplayed opens the window.
+## Author: Martin Contento
+## Version: 0.1.0
+## SavedVariables: TimeWellSpentDB
+## IconTexture: Interface\Icons\INV_Misc_PocketWatch_01
+## AddonCompartmentFunc: TimeWellSpent_Toggle
+
+Logic.lua
+TimeWellSpent.lua

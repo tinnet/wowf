@@ -68,3 +68,17 @@ HandleModifiedItemClick = nil
 AuctionHouseUtil = {}
 ---@type table
 AuctionHouseSearchContext = {}
+
+--- Blizzard_StaticPopup/StaticPopup.lua
+---@type table
+StaticPopupDialogs = {}
+---@type function
+StaticPopup_Show = nil
+
+--- Blizzard_ChatFrameBase/Mainline/FloatingChatFrame.lua (names of the chat frames)
+---@type string[]
+CHAT_FRAMES = {}
+
+--- Blizzard_SharedXML/ClassColors.lua
+---@type table<string, ColorMixin>
+RAID_CLASS_COLORS = {}
