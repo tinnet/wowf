@@ -1,0 +1,8 @@
+## Interface: 16001
+## Title: SubjectToChange
+## Notes: Fills an empty mail subject with the attached item's name, as the game did before Forever's mail subject bug.
+## Author: Martin Contento
+## Version: 0.1.0
+## IconTexture: Interface\Icons\INV_Letter_15
+
+SubjectToChange.lua

@@ -40,6 +40,11 @@ where it came from and when. How to look up the API itself is in CLAUDE.md.
   reaches them all. The merchant calls the button's own method instead; hook
   `MerchantFrameItem_UpdateQuality(item, link)` for it. Forever loads the `Mainline`
   versions of these frames (Blizzard_UIPanels_Game toc; CrateExpectations, 2026-11-16).
+- Since a maintenance in mid-November 2026, attaching an item no longer fills an empty mail
+  subject with its name, even with every addon disabled and though `GetSendMailItem(i)`
+  returns the name (`/run` checked, 2026-11-23); calling `SendMailFrame_Update()` by hand
+  doesn't fill it either. Reported: https://github.com/ClassicWoWCommunity/forever-bugs/issues/575
+  and the Blizzard forums. SubjectToChange works around it.
 - Secure action buttons honor the `useOnKeyDown` attribute; with it `false` and
   `RegisterForClicks("AnyUp")`, key bindings and `/click Button` both fire once.
 
