@@ -39,8 +39,11 @@ castButton:RegisterForClicks("AnyUp", "AnyDown")
 ---------------------------------------------------------------------------
 -- CVars
 ---------------------------------------------------------------------------
+-- SetCVar is blocked in combat (ADDON_ACTION_BLOCKED, seen 2026-11-22 closing the window
+-- mid-fight), so both wait: PLAYER_REGEN_ENABLED calls syncCVars, and savedCVars stays in the
+-- saved variables until a restore gets through.
 local function applyCVars()
-    if db.savedCVars then
+    if InCombatLockdown() or db.savedCVars then
         return -- already applied (and originals already saved)
     end
     db.savedCVars = {}
@@ -51,13 +54,21 @@ local function applyCVars()
 end
 
 local function restoreCVars()
-    if not db.savedCVars then
+    if InCombatLockdown() or not db.savedCVars then
         return
     end
     for name, value in pairs(db.savedCVars) do
         C_CVar.SetCVar(name, value)
     end
     db.savedCVars = nil
+end
+
+local function syncCVars()
+    if window and window:IsShown() then
+        applyCVars()
+    else
+        restoreCVars()
+    end
 end
 
 ---------------------------------------------------------------------------
@@ -321,6 +332,7 @@ events:SetScript("OnEvent", function(_, event, arg1, _, spellID)
         ClearOverrideBindings(events)
         setStatus()
     elseif event == "PLAYER_REGEN_ENABLED" then
+        syncCVars()
         applyBindings()
     elseif event == "PLAYER_LOGOUT" then
         restoreCVars() -- don't leave our soft-target settings behind

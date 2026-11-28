@@ -10,6 +10,9 @@ where it came from and when. How to look up the API itself is in CLAUDE.md.
   loaded for game type `camelot`), even with mouse and keyboard. It caches the
   `autoLootDefault` CVar through `CVarCallbackRegistry`, so setting that CVar from addon
   code taints it (SnapLoot got blamed for a blocked interact action, 2026-11-09).
+- `C_CVar.SetCVar` is blocked in combat for at least the `SoftTargetInteract*` CVars
+  (`ADDON_ACTION_BLOCKED: SpaceFish tried to call the protected function SetCVar()`, caught
+  by Forever++'s ErrorCatcher, 2026-11-22). Defer CVar changes to `PLAYER_REGEN_ENABLED`.
 - Some API returns are secret values (`issecretvalue`), e.g. `UnitInRange` always,
   auras in combat. Use `C_Spell.IsSpellInRange(spell, unit)` for range checks.
 - Vendors have a Sell Junk button; addons can call `C_MerchantFrame.SellAllJunkItems()`
